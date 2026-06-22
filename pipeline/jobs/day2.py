@@ -1,21 +1,84 @@
 import copy
+import time
 from datetime import datetime, timedelta
 
 import pandas as pd
 
 from utils.metabase import tarik_metabase, get_token
-from utils.gsheet import read_sheet, write_sheet, clear_range
+from utils.gsheet import read_sheet, write_sheet
 from config.settings import METABASE_CONFIG, GSHEET
+from utils.transform import (
+    transform_attempt,
+    transform_n0_completion,
+    transform_n1_completion,
+    transform_completion_timeslot,
+    transform_lnd,
+    transform_rsvn_completed,
+    transform_poda,
+    transform_pu_rot,
+    transform_td6,
+    transform_rdo_rtd,
+)
 
 
-# =========================
-# RUN CONTROL
-# =========================
-RUN_POA = False
-RUN_LND = True
+SHIPPER_GROUPS = {
+    "agg_fsbd": ["FSBD Key Shipper", "Aggregator Keyshipper"],
+    "b2c_cc_agg_fsbd": [
+        "B2C Cold Sameday",
+        "B2C Cold Next Day",
+        "FSBD Key Shipper",
+        "Aggregator Keyshipper",
+    ],
+    "b2b_all_b2c_cc": [
+        "B2B Dry Reguler",
+        "B2B Cold Next Day",
+        "B2B Dry Next Day",
+        "B2C Cold Next Day",
+    ],
+    "b2b_dry_cc_next": [
+        "B2B Dry Reguler",
+        "B2B Cold Next Day",
+        "B2B Dry Next Day",
+    ],
+    "b2b_sds_dry_cold_prem": ["B2B Sameday Premium"],
+    "b2b_sds_dry_cold_reg": ["B2B Sameday Reguler", "B2C Cold Sameday"],
+    "b2br_key_shipper": [
+        "B2B Dry Reguler",
+        "B2B Sameday Reguler",
+        "B2B Sameday Premium",
+        "FSBD Key Shipper",
+        "Aggregator Keyshipper",
+    ],
+    "sds_cc": [
+        "B2B Sameday Reguler",
+        "B2B Sameday Premium",
+        "B2C Cold Chain Sameday",
+        "B2C Cold Chain Next Day",
+    ],
+    "aggregator": ["Aggregator Keyshipper"],
+}
 
-DUMP_TRACKER = True
-DUMP_SANGGAHAN = True
+
+LM_REPORT_PLAN = [
+    # {"report_key": "attempt_n0", "segment_key": "agg_fsbd"},
+    # {"report_key": "attempt_n0", "segment_key": "b2c_cc_agg_fsbd"},
+    # {"report_key": "attempt_n0", "segment_key": "laz_shop_tt"},
+    # {"report_key": "n0_completion", "segment_key": "b2b_all_b2c_cc"},
+    # {"report_key": "n0_completion", "segment_key": "b2b_dry_cc_next"},
+    # {"report_key": "n0_completion", "segment_key": "tt"},
+    # {"report_key": "n1_completion"},
+    # {"report_key": "completion_within_timeslot"},
+    # {"report_key": "lnd_b2b_all_b2c_cc"},
+    # {"report_key": "no_rsvn_completed"},
+    # {"report_key": "no_rsvn_completed", "segment_key": "b2br_key_shipper"},
+    # {"report_key": "no_rsvn_completed", "segment_key": "sds_cc"},
+    # {"report_key": "poda_val_sho_laz"},
+    # {"report_key": "pu_rot"},
+    # {"report_key": "td6", "segment_key": "4pl"},
+    # {"report_key": "td6", "segment_key": "aggregator"},
+    # {"report_key": "td6", "segment_key": "shop_laz"},
+    {"report_key": "rdo_rtd_b2b"},
+]
 
 
 def get_previous_month_period():
@@ -24,38 +87,15 @@ def get_previous_month_period():
     last_day_prev_month = first_day_this_month - timedelta(days=1)
     first_day_prev_month = last_day_prev_month.replace(day=1)
 
-    return (
-        first_day_prev_month.strftime("%Y-%m-%d"),
-        last_day_prev_month.strftime("%Y-%m-%d"),
-    )
+    start_date = first_day_prev_month.strftime("%Y-%m-%d")
+    end_date = last_day_prev_month.strftime("%Y-%m-%d")
+    period_str = f"{start_date}~{end_date}"
+
+    return start_date, end_date, period_str
 
 
-def render_params(param_templates, runtime_values):
-    rendered = []
-
-    for param in param_templates:
-        p = copy.deepcopy(param)
-
-        if "value_key" in p:
-            key = p.pop("value_key")
-            if key not in runtime_values:
-                raise KeyError(f"runtime_values tidak punya key: {key}")
-            p["value"] = runtime_values[key]
-
-        rendered.append(p)
-
-    return rendered
-
-
-def sanitize_for_sheet(df: pd.DataFrame) -> pd.DataFrame:
-    cleaned = df.copy()
-    cleaned = cleaned.replace([float("inf"), float("-inf")], pd.NA)
-    cleaned = cleaned.where(pd.notna(cleaned), "")
-    return cleaned
-
-
-def build_shipper_lists():
-    print("\n[1] Read Google Sheet key_shipper...")
+def build_shipper_group_values():
+    print("\n[1/4] Read Key Shipper...")
 
     df = read_sheet(
         GSHEET["key_shipper"]["sheet_id"],
@@ -67,60 +107,71 @@ def build_shipper_lists():
     required_cols = ["Type", "Shipper ID"]
     missing_cols = [c for c in required_cols if c not in df.columns]
     if missing_cols:
-        raise ValueError(f"Kolom tidak ditemukan di sheet key_shipper: {missing_cols}")
+        raise ValueError(f"Kolom tidak ditemukan di key_shipper: {missing_cols}")
 
     df["Type"] = df["Type"].astype(str).str.strip()
 
-    b2b_cc_categories = [
-        "B2C Cold Chain Sameday",
-        "B2C Cold Chain Next Day",
-        "B2B Dry Reguler",
-        "B2B Sameday Reguler",
-        "B2B Sameday Premium",
-    ]
+    df["Shipper ID"] = (
+        pd.to_numeric(df["Shipper ID"], errors="coerce")
+        .dropna()
+        .astype(int)
+        .astype(str)
+    )
 
-    fsbd_categories = [
-        "FSBD Key Shipper",
-        "Aggregator Keyshipper",
-    ]
+    result = {}
 
-    def extract_ids(mask):
-        return (
-            pd.to_numeric(df.loc[mask, "Shipper ID"], errors="coerce")
+    for group_key, type_list in SHIPPER_GROUPS.items():
+        ids = (
+            df[df["Type"].isin(type_list)]["Shipper ID"]
             .dropna()
-            .astype(int)
-            .astype(str)
             .drop_duplicates()
             .tolist()
         )
 
-    b2b_cc_list = extract_ids(df["Type"].isin(b2b_cc_categories))
-    fsbd_list = extract_ids(df["Type"].isin(fsbd_categories))
+        result[group_key] = ids
+        print(f"{group_key}: {len(ids)} shipper_id | sample: {ids[:5]}")
 
-    print(f"Total b2b_cc_list: {len(b2b_cc_list)} | sample: {b2b_cc_list[:5]}")
-    print(f"Total fsbd_list: {len(fsbd_list)} | sample: {fsbd_list[:5]}")
-
-    return b2b_cc_list, fsbd_list
+    return result
 
 
-def run_report(report_group, report_key, segment_key, runtime_values, token):
-    cfg = METABASE_CONFIG[report_group][report_key]
+def render_params(param_templates, runtime_values):
+    rendered = []
+
+    for param in param_templates or []:
+        p = copy.deepcopy(param)
+
+        if "value_key" in p:
+            key = p.pop("value_key")
+            p["value"] = runtime_values[key]
+
+        elif isinstance(p.get("value"), str) and p["value"] in runtime_values:
+            p["value"] = runtime_values[p["value"]]
+
+        rendered.append(p)
+
+    return rendered
+
+
+def run_report(report_key, runtime_values, token, segment_key=None):
+    cfg = METABASE_CONFIG["lm"][report_key]
 
     common_params = render_params(
-        cfg["common_params_template"],
+        cfg.get("common_params_template", []),
         runtime_values,
     )
 
-    segment_params = render_params(
-        cfg["shipper_params_template"][segment_key],
-        runtime_values,
-    )
+    segment_params = []
+    if segment_key:
+        segment_params = render_params(
+            cfg.get("shipper_params_template", {}).get(segment_key, []),
+            runtime_values,
+        )
 
     final_params = common_params + segment_params
-    desc = f"{report_key}_{segment_key}"
+    desc = f"{report_key}_{segment_key}" if segment_key else report_key
 
     print(f"\n[RUN] {desc}")
-    print(f"Group: {report_group}")
+    print(f"URL: {cfg['url']}")
     print(f"Total params: {len(final_params)}")
 
     df_result = tarik_metabase(
@@ -132,478 +183,272 @@ def run_report(report_group, report_key, segment_key, runtime_values, token):
 
     print(f"{desc} shape: {df_result.shape}")
 
-    if df_result.empty:
-        print(f"WARNING: {desc} hasil kosong")
-    else:
+    print("\nColumns:")
+    for col in df_result.columns:
+        print(f" - {col}")
+
+    if not df_result.empty:
         print(df_result.head(5).to_string(index=False))
+    else:
+        print(f"WARNING: {desc} hasil kosong")
+
+    time.sleep(2)
 
     return df_result
 
 
-# =========================
-# POA
-# =========================
-def reduce_poa_columns(df):
-    if df.empty:
-        return pd.DataFrame(columns=["orig_hub_name", "remarks", "total_vol"])
+def should_skip_report(report_key):
+    if report_key not in METABASE_CONFIG["lm"]:
+        return True
 
-    required_cols = [
-        "orig_hub_name",
-        "remarks",
-        "total_vol_poa_iv_closest_wave",
-    ]
-
-    missing_cols = [c for c in required_cols if c not in df.columns]
-    if missing_cols:
-        raise ValueError(f"Kolom POA tidak ditemukan: {missing_cols}")
-
-    out = df[required_cols].copy()
-    out = out.rename(columns={"total_vol_poa_iv_closest_wave": "total_vol"})
-
-    out["orig_hub_name"] = out["orig_hub_name"].astype(str).str.strip()
-    out["remarks"] = out["remarks"].astype(str).str.strip().str.lower()
-    out["total_vol"] = pd.to_numeric(out["total_vol"], errors="coerce").fillna(0)
-
-    return out
-
-
-def compile_poa_segment(results, segment_key):
-    compiled = []
-
-    for report_key in ["poa_iv_1", "poa_iv_2", "poa_iv_3", "poa_iv_4"]:
-        result_key = f"{report_key}_{segment_key}"
-        df = results.get(result_key, pd.DataFrame())
-        compiled.append(reduce_poa_columns(df))
-
-    if not compiled:
-        return pd.DataFrame(columns=["orig_hub_name", "remarks", "total_vol"])
-
-    return pd.concat(compiled, ignore_index=True)
-
-
-def build_poa_pivot(df_compiled):
-    expected_cols = [
-        "hit",
-        "hit: offload",
-        "miss",
-        "miss: potential hit",
-    ]
-
-    final_cols = [
-        "orig_hub_name",
-        "hit",
-        "hit: offload",
-        "miss",
-        "miss: potential hit",
-        "grand_total",
-        "total_hit",
-    ]
-
-    if df_compiled.empty:
-        return pd.DataFrame(columns=final_cols)
-
-    df = df_compiled.copy()
-
-    df["remarks"] = df["remarks"].astype(str).str.strip().str.lower()
-    df["total_vol"] = pd.to_numeric(df["total_vol"], errors="coerce").fillna(0)
-
-    df = df[df["remarks"] != "others"]
-
-    pivot = (
-        df.pivot_table(
-            index="orig_hub_name",
-            columns="remarks",
-            values="total_vol",
-            aggfunc="sum",
-            fill_value=0,
-        )
-        .reset_index()
-    )
-
-    for col in expected_cols:
-        if col not in pivot.columns:
-            pivot[col] = 0
-
-    pivot["total_hit"] = pivot["hit"] + pivot["hit: offload"]
-
-    pivot["grand_total"] = (
-        pivot["hit"]
-        + pivot["hit: offload"]
-        + pivot["miss"]
-        + pivot["miss: potential hit"]
-    )
-
-    return pivot[final_cols].sort_values("orig_hub_name").reset_index(drop=True)
-
-
-def dump_poa_to_tracker(
-    pivot_poa_b2b_cc: pd.DataFrame,
-    pivot_poa_fsbd: pd.DataFrame,
-    pivot_poa_others: pd.DataFrame,
-) -> None:
-    tracker_cfg = GSHEET["tracker"]
-    tracker_sheet_id = tracker_cfg["sheet_id"]
-    tracker_tab = tracker_cfg["tabs"]["raw_data_all"]
-
-    poa_clear_ranges = [
-        "C4:I",
-        "P4:V",
-        "AC4:AI",
-    ]
-
-    for r in poa_clear_ranges:
-        clear_range(
-            spreadsheet_id=tracker_sheet_id,
-            sheet_name=tracker_tab,
-            range_a1=r,
-        )
-
-    write_sheet(
-        spreadsheet_id=tracker_sheet_id,
-        sheet_name=tracker_tab,
-        df=sanitize_for_sheet(pivot_poa_b2b_cc),
-        start_cell="C4",
-        include_header=False,
-    )
-
-    write_sheet(
-        spreadsheet_id=tracker_sheet_id,
-        sheet_name=tracker_tab,
-        df=sanitize_for_sheet(pivot_poa_fsbd),
-        start_cell="P4",
-        include_header=False,
-    )
-
-    write_sheet(
-        spreadsheet_id=tracker_sheet_id,
-        sheet_name=tracker_tab,
-        df=sanitize_for_sheet(pivot_poa_others),
-        start_cell="AC4",
-        include_header=False,
-    )
-
-    print("POA tracker updated successfully.")
-
-
-def dump_poa_to_sanggahan(
-    pivot_poa_b2b_cc: pd.DataFrame,
-    pivot_poa_fsbd: pd.DataFrame,
-    pivot_poa_others: pd.DataFrame,
-) -> None:
-    sanggahan_cfg = GSHEET["sanggahan"]
-    sanggahan_sheet_id = sanggahan_cfg["sheet_id"]
-    tabs = sanggahan_cfg["tabs"]
-
-    write_sheet(
-        spreadsheet_id=sanggahan_sheet_id,
-        sheet_name=tabs["poa_iv_b2b_all_b2c_cold"],
-        df=sanitize_for_sheet(pivot_poa_b2b_cc),
-        start_cell="A3",
-        include_header=False,
-    )
-
-    write_sheet(
-        spreadsheet_id=sanggahan_sheet_id,
-        sheet_name=tabs["poa_iv_keyshipper"],
-        df=sanitize_for_sheet(pivot_poa_fsbd),
-        start_cell="A3",
-        include_header=False,
-    )
-
-    write_sheet(
-        spreadsheet_id=sanggahan_sheet_id,
-        sheet_name=tabs["poa_iv_others"],
-        df=sanitize_for_sheet(pivot_poa_others),
-        start_cell="A3",
-        include_header=False,
-    )
-
-    print("POA sanggahan updated successfully.")
-
-
-# =========================
-# LND
-# =========================
-def reduce_lnd_columns(df):
-    if df.empty:
-        return pd.DataFrame(columns=["hub", "total_loss_damage", "total_volume"])
-
-    required_cols = [
-        "hub",
-        "total_loss_damage",
-        "total_volume",
-    ]
-
-    missing_cols = [c for c in required_cols if c not in df.columns]
-    if missing_cols:
-        raise ValueError(f"Kolom LND tidak ditemukan: {missing_cols}")
-
-    out = df[required_cols].copy()
-
-    out["hub"] = out["hub"].astype(str).str.strip()
-    out["total_loss_damage"] = pd.to_numeric(
-        out["total_loss_damage"], errors="coerce"
-    ).fillna(0)
-    out["total_volume"] = pd.to_numeric(
-        out["total_volume"], errors="coerce"
-    ).fillna(0)
-
-    return out.sort_values("hub").reset_index(drop=True)
-
-
-def dump_lnd_to_tracker(
-    lnd_b2b_cc: pd.DataFrame,
-    lnd_fsbd: pd.DataFrame,
-    lnd_others: pd.DataFrame,
-) -> None:
-    tracker_cfg = GSHEET["tracker"]
-    tracker_sheet_id = tracker_cfg["sheet_id"]
-    tracker_tab = tracker_cfg["tabs"]["raw_data_all"]
-
-    lnd_clear_ranges = [
-        "AP4:AR",
-        "AY4:BA",
-        "BH4:BJ",
-    ]
-
-    for r in lnd_clear_ranges:
-        clear_range(
-            spreadsheet_id=tracker_sheet_id,
-            sheet_name=tracker_tab,
-            range_a1=r,
-        )
-
-    write_sheet(
-        spreadsheet_id=tracker_sheet_id,
-        sheet_name=tracker_tab,
-        df=sanitize_for_sheet(lnd_b2b_cc),
-        start_cell="AP4",
-        include_header=False,
-    )
-
-    write_sheet(
-        spreadsheet_id=tracker_sheet_id,
-        sheet_name=tracker_tab,
-        df=sanitize_for_sheet(lnd_fsbd),
-        start_cell="AY4",
-        include_header=False,
-    )
-
-    write_sheet(
-        spreadsheet_id=tracker_sheet_id,
-        sheet_name=tracker_tab,
-        df=sanitize_for_sheet(lnd_others),
-        start_cell="BH4",
-        include_header=False,
-    )
-
-    print("LND tracker updated successfully.")
-
-
-def dump_lnd_to_sanggahan(
-    lnd_b2b_cc: pd.DataFrame,
-    lnd_fsbd: pd.DataFrame,
-    lnd_others: pd.DataFrame,
-) -> None:
-    sanggahan_cfg = GSHEET["sanggahan"]
-    sanggahan_sheet_id = sanggahan_cfg["sheet_id"]
-    tabs = sanggahan_cfg["tabs"]
-
-    write_sheet(
-        spreadsheet_id=sanggahan_sheet_id,
-        sheet_name=tabs["lnd_rate_b2b_all_b2c_cold"],
-        df=sanitize_for_sheet(lnd_b2b_cc),
-        start_cell="A3",
-        include_header=False,
-    )
-
-    write_sheet(
-        spreadsheet_id=sanggahan_sheet_id,
-        sheet_name=tabs["lnd_rate_keyshipper"],
-        df=sanitize_for_sheet(lnd_fsbd),
-        start_cell="A3",
-        include_header=False,
-    )
-
-    write_sheet(
-        spreadsheet_id=sanggahan_sheet_id,
-        sheet_name=tabs["lnd_rate_others"],
-        df=sanitize_for_sheet(lnd_others),
-        start_cell="A3",
-        include_header=False,
-    )
-
-    print("LND sanggahan updated successfully.")
+    url = METABASE_CONFIG["lm"][report_key].get("url", "")
+    return not url or "PASTE_" in url
+    
+def sanitize_for_sheet(df: pd.DataFrame) -> pd.DataFrame:
+    cleaned = df.copy()
+    cleaned = cleaned.replace([float("inf"), float("-inf")], pd.NA)
+    cleaned = cleaned.where(pd.notna(cleaned), "")
+    return cleaned
 
 
 def run():
-    print("=== DAY 2 POA + LND START ===")
+    print("=== LM DAY 2 START ===")
 
-    start_date, end_date = get_previous_month_period()
-    print(f"\n[0] Period: {start_date} to {end_date}")
+    start_date, end_date, period_str = get_previous_month_period()
 
-    print("\n[1] Get Metabase token...")
+    print(f"\n[0/4] Period")
+    print(f"start_date : {start_date}")
+    print(f"end_date   : {end_date}")
+    print(f"period_str : {period_str}")
+
+    print("\n[1/4] Get Metabase token...")
     token = get_token()
     print("Token loaded:", bool(token))
 
-    print("\n[2] Build shipper lists...")
-    b2b_cc_list, fsbd_list = build_shipper_lists()
+    shipper_runtime = build_shipper_group_values()
 
     runtime_values = {
         "start_date": start_date,
         "end_date": end_date,
-        "b2b_cc": b2b_cc_list,
-        "fsbd": fsbd_list,
+        "period_str": period_str,
+        "start_end": start_date,
+        "driver_list": [
+            "CDA Driver", "Driver", "Freelance CDA Driver", "Freelance Driver",
+            "Junior Coldchain Driver", "Captain Sameday", "Freelance Sameday Driver",
+            "Freelance Sameday Rider", "Junior Sameday Rider", "On-call Driver",
+            "Rider", "Rider Bulky", "Sameday Rider", "Senior Sameday Rider",
+            "SPH Driver", "SPH Leader", "SPH Rider", "SPH+(Plus) Rider",
+        ],
+        **shipper_runtime,
     }
 
-    segment_keys = ["b2b_cc", "fsbd", "others"]
+    results = {}
 
-    poa_results = {}
-    compiled_poa_b2b_cc = pd.DataFrame()
-    compiled_poa_fsbd = pd.DataFrame()
-    compiled_poa_others = pd.DataFrame()
-    pivot_poa_b2b_cc = pd.DataFrame()
-    pivot_poa_fsbd = pd.DataFrame()
-    pivot_poa_others = pd.DataFrame()
+    print("\n[2/4] Pull selected LM reports...")
 
-    lnd_results = {}
-    lnd_b2b_cc = pd.DataFrame()
-    lnd_fsbd = pd.DataFrame()
-    lnd_others = pd.DataFrame()
+    for item in LM_REPORT_PLAN:
+        report_key = item["report_key"]
+        segment_key = item.get("segment_key")
+        result_name = f"{report_key}_{segment_key}" if segment_key else report_key
 
-    # =========================
-    # POA
-    # =========================
-    if RUN_POA:
-        print("\n[3] Pull POA reports...")
+        if should_skip_report(report_key):
+            print(f"SKIP {result_name}: report_key tidak ada atau URL kosong")
+            continue
 
-        poa_report_keys = [
-            "poa_iv_1",
-            "poa_iv_2",
-            "poa_iv_3",
-            "poa_iv_4",
-        ]
-
-        for report_key in poa_report_keys:
-            for segment_key in segment_keys:
-                result_name = f"{report_key}_{segment_key}"
-
-                poa_results[result_name] = run_report(
-                    report_group="poa",
-                    report_key=report_key,
-                    segment_key=segment_key,
-                    runtime_values=runtime_values,
-                    token=token,
-                )
-
-        print("\n[4] Compile and pivot POA...")
-
-        compiled_poa_b2b_cc = compile_poa_segment(poa_results, "b2b_cc")
-        compiled_poa_fsbd = compile_poa_segment(poa_results, "fsbd")
-        compiled_poa_others = compile_poa_segment(poa_results, "others")
-
-        pivot_poa_b2b_cc = build_poa_pivot(compiled_poa_b2b_cc)
-        pivot_poa_fsbd = build_poa_pivot(compiled_poa_fsbd)
-        pivot_poa_others = build_poa_pivot(compiled_poa_others)
-
-        print("pivot_poa_b2b_cc shape:", pivot_poa_b2b_cc.shape)
-        print("pivot_poa_fsbd shape:", pivot_poa_fsbd.shape)
-        print("pivot_poa_others shape:", pivot_poa_others.shape)
-
-    else:
-        print("\n[SKIP] POA disabled")
-
-    # =========================
-    # LND
-    # =========================
-    if RUN_LND:
-        print("\n[5] Pull LND reports...")
-
-        for segment_key in segment_keys:
-            result_name = f"lnd_1_{segment_key}"
-
-            lnd_results[result_name] = run_report(
-                report_group="lnd",
-                report_key="lnd_1",
-                segment_key=segment_key,
+        try:
+            results[result_name] = run_report(
+                report_key=report_key,
                 runtime_values=runtime_values,
                 token=token,
+                segment_key=segment_key,
+            )
+        except Exception as e:
+            print(f"\n[FAILED] {result_name}")
+            print(repr(e))
+            results[result_name] = pd.DataFrame()
+
+    print("\n[3/4] Summary raw result shapes:")
+    for key, df in results.items():
+        print(f"- {key}: {df.shape}")
+
+    print("\n[4/4] Transform tracker outputs...")
+
+    TRANSFORM_MAP = {
+        "attempt_n0_agg_fsbd": transform_attempt,
+        "attempt_n0_b2c_cc_agg_fsbd": transform_attempt,
+        "attempt_n0_laz_shop_tt": transform_attempt,
+        "n0_completion_b2b_all_b2c_cc": transform_n0_completion,
+        "n0_completion_b2b_dry_cc_next": transform_n0_completion,
+        "n0_completion_tt": transform_n0_completion,
+        "n1_completion": transform_n1_completion,
+        "completion_within_timeslot": transform_completion_timeslot,
+        "lnd_b2b_all_b2c_cc": transform_lnd,
+        "no_rsvn_completed": transform_rsvn_completed,
+        "no_rsvn_completed_b2br_key_shipper": transform_rsvn_completed,
+        "no_rsvn_completed_sds_cc": transform_rsvn_completed,
+        "poda_val_sho_laz": transform_poda,
+        "pu_rot": transform_pu_rot,
+        "td6_4pl": transform_td6,
+        "td6_aggregator": transform_td6,
+        "td6_shop_laz": transform_td6,
+        "rdo_rtd_b2b": transform_rdo_rtd,
+    }
+
+    tracker_results = {}
+
+    for result_key, transform_func in TRANSFORM_MAP.items():
+        if result_key not in results:
+            print(f"[SKIP TRANSFORM] {result_key}: not found in raw results")
+            continue
+
+        try:
+            tracker_results[result_key] = transform_func(results[result_key])
+            print(f"[OK TRANSFORM] {result_key}: {tracker_results[result_key].shape}")
+
+        except Exception as e:
+            print(f"[FAILED TRANSFORM] {result_key}")
+            print(repr(e))
+            tracker_results[result_key] = pd.DataFrame()
+
+    # DIRECT TO TRACKER - no transform
+    # if "rdo_rtd_b2b" in results:
+    #     tracker_results["rdo_rtd_b2b"] = results["rdo_rtd_b2b"]
+
+    print("\nSummary tracker output shapes:")
+    for key, df in tracker_results.items():
+        print(f"- {key}: {df.shape}")
+
+    TRACKER_WRITE_MAP = {
+        "attempt_n0_agg_fsbd": [
+            {"tracker_key": "tracker_sum", "tab_key": "raw_data_otif", "start_cell": "AS5"},
+        ],
+        "attempt_n0_b2c_cc_agg_fsbd": [
+            {"tracker_key": "tracker_gj", "tab_key": "raw_data_otif", "start_cell": "BC5"},
+            {"tracker_key": "tracker_wj", "tab_key": "raw_data_otif", "start_cell": "BC5"},
+            {"tracker_key": "tracker_cj", "tab_key": "raw_data_otif", "start_cell": "BC5"},
+            {"tracker_key": "tracker_ej", "tab_key": "raw_data_otif", "start_cell": "BC5"},
+        ],
+        "attempt_n0_laz_shop_tt": [
+            {"tracker_key": "tracker_gj", "tab_key": "raw_data_otif", "start_cell": "BI5"},
+        ],
+        "n0_completion_b2b_all_b2c_cc": [
+            {"tracker_key": "tracker_sum", "tab_key": "raw_data_otif", "start_cell": "AM5"},
+        ],
+        "n0_completion_b2b_dry_cc_next": [
+            {"tracker_key": "tracker_gj", "tab_key": "raw_data_otif", "start_cell": "AW5"},
+            {"tracker_key": "tracker_wj", "tab_key": "raw_data_otif", "start_cell": "AW5"},
+            {"tracker_key": "tracker_cj", "tab_key": "raw_data_otif", "start_cell": "AW5"},
+            {"tracker_key": "tracker_ej", "tab_key": "raw_data_otif", "start_cell": "AW5"},
+        ],
+        "n0_completion_tt": [
+            {"tracker_key": "tracker_wj", "tab_key": "raw_data_otif", "start_cell": "BI5"},
+            {"tracker_key": "tracker_cj", "tab_key": "raw_data_otif", "start_cell": "BI5"},
+            {"tracker_key": "tracker_ej", "tab_key": "raw_data_otif", "start_cell": "BI5"},
+        ],
+        "n1_completion": [
+            {"tracker_key": "tracker_wj", "tab_key": "raw_data_otif", "start_cell": "AP5"},
+            {"tracker_key": "tracker_cj", "tab_key": "raw_data_otif", "start_cell": "AP5"},
+            {"tracker_key": "tracker_ej", "tab_key": "raw_data_otif", "start_cell": "AP5"},
+        ],
+        "completion_within_timeslot": [
+            {"tracker_key": "tracker_gj", "tab_key": "raw_data_otif", "start_cell": "AP5"},
+        ],
+        "lnd_b2b_all_b2c_cc": [
+            {"tracker_key": "tracker_gj", "tab_key": "raw_data_int_comp", "start_cell": "B5"},
+            {"tracker_key": "tracker_wj", "tab_key": "raw_data_int_comp", "start_cell": "B5"},
+            {"tracker_key": "tracker_cj", "tab_key": "raw_data_int_comp", "start_cell": "B5"},
+            {"tracker_key": "tracker_ej", "tab_key": "raw_data_int_comp", "start_cell": "B5"},
+            {"tracker_key": "tracker_sum", "tab_key": "raw_data_int_comp", "start_cell": "B5"},
+        ],
+        "no_rsvn_completed": [
+            {"tracker_key": "tracker_sum", "tab_key": "raw_data_otif", "start_cell": "Z5"},
+        ],
+        "no_rsvn_completed_b2br_key_shipper": [
+            {"tracker_key": "tracker_wj", "tab_key": "raw_data_otif", "start_cell": "AJ5"},
+            {"tracker_key": "tracker_cj", "tab_key": "raw_data_otif", "start_cell": "AJ5"},
+            {"tracker_key": "tracker_ej", "tab_key": "raw_data_otif", "start_cell": "AJ5"},
+        ],
+        "no_rsvn_completed_sds_cc": [
+            {"tracker_key": "tracker_gj", "tab_key": "raw_data_otif", "start_cell": "AJ5"},
+        ],
+        "poda_val_sho_laz": [
+            {"tracker_key": "tracker_gj", "tab_key": "raw_data_int_comp", "start_cell": "AB5"},
+            {"tracker_key": "tracker_wj", "tab_key": "raw_data_int_comp", "start_cell": "U5"},
+            {"tracker_key": "tracker_cj", "tab_key": "raw_data_int_comp", "start_cell": "U5"},
+            {"tracker_key": "tracker_ej", "tab_key": "raw_data_int_comp", "start_cell": "U5"},
+            {"tracker_key": "tracker_sum", "tab_key": "raw_data_int_comp", "start_cell": "T5"},
+        ],
+        "pu_rot": [
+            {"tracker_key": "tracker_wj", "tab_key": "raw_data_otif", "start_cell": "O5"},
+            {"tracker_key": "tracker_cj", "tab_key": "raw_data_otif", "start_cell": "O5"},
+            {"tracker_key": "tracker_ej", "tab_key": "raw_data_otif", "start_cell": "O5"},
+            {"tracker_key": "tracker_sum", "tab_key": "raw_data_otif", "start_cell": "N5"},
+        ],
+        "td6_4pl": [
+            {"tracker_key": "tracker_wj", "tab_key": "raw_data_otif", "start_cell": "B5"},
+            {"tracker_key": "tracker_cj", "tab_key": "raw_data_otif", "start_cell": "B5"},
+            {"tracker_key": "tracker_ej", "tab_key": "raw_data_otif", "start_cell": "B5"},
+            {"tracker_key": "tracker_sum", "tab_key": "raw_data_otif", "start_cell": "T5"},
+        ],
+        "td6_aggregator": [
+            {"tracker_key": "tracker_gj", "tab_key": "raw_data_otif", "start_cell": "B5"},
+        ],
+        "td6_shop_laz": [
+            {"tracker_key": "tracker_wj", "tab_key": "raw_data_otif", "start_cell": "V5"},
+            {"tracker_key": "tracker_cj", "tab_key": "raw_data_otif", "start_cell": "V5"},
+            {"tracker_key": "tracker_ej", "tab_key": "raw_data_otif", "start_cell": "V5"},
+            {"tracker_key": "tracker_sum", "tab_key": "raw_data_otif", "start_cell": "B5"},
+        ],
+        "rdo_rtd_b2b": [
+            {"tracker_key": "rdo_comp", "tab_key": "raw_data", "start_cell": "D2"},
+        ],
+    }
+
+    print("\n[WRITE] Dump tracker outputs...")
+
+    for result_key, destinations in TRACKER_WRITE_MAP.items():
+        if result_key not in tracker_results:
+            print(f"[SKIP WRITE] {result_key}: not found in tracker_results")
+            continue
+
+        df_to_write = sanitize_for_sheet(tracker_results[result_key])
+
+        if df_to_write.empty:
+            print(f"[SKIP WRITE] {result_key}: dataframe empty")
+            continue
+
+        for dest in destinations:
+            tracker_key = dest["tracker_key"]
+            tab_key = dest["tab_key"]
+            start_cell = dest["start_cell"]
+
+            if start_cell == "ISI_CELL":
+                print(f"[SKIP WRITE] {result_key}: start_cell belum diisi")
+                continue
+
+            if tracker_key not in GSHEET:
+                print(f"[SKIP WRITE] {result_key}: tracker_key belum ada di GSHEET: {tracker_key}")
+                continue
+
+            tracker_cfg = GSHEET[tracker_key]
+            sheet_id = tracker_cfg["sheet_id"]
+            sheet_name = tracker_cfg["tabs"][tab_key]
+
+            print(f"Writing {result_key} -> {tracker_key} | {sheet_name} | {start_cell}")
+
+            write_sheet(
+                spreadsheet_id=sheet_id,
+                sheet_name=sheet_name,
+                df=df_to_write,
+                start_cell=start_cell,
+                include_header=False,
             )
 
-        print("\n[6] Reduce LND columns...")
-
-        lnd_b2b_cc = reduce_lnd_columns(
-            lnd_results.get("lnd_1_b2b_cc", pd.DataFrame())
-        )
-        lnd_fsbd = reduce_lnd_columns(
-            lnd_results.get("lnd_1_fsbd", pd.DataFrame())
-        )
-        lnd_others = reduce_lnd_columns(
-            lnd_results.get("lnd_1_others", pd.DataFrame())
-        )
-
-        print("lnd_b2b_cc shape:", lnd_b2b_cc.shape)
-        print("lnd_fsbd shape:", lnd_fsbd.shape)
-        print("lnd_others shape:", lnd_others.shape)
-
-    else:
-        print("\n[SKIP] LND disabled")
-
-    # =========================
-    # DUMP
-    # =========================
-    if DUMP_TRACKER:
-        print("\n[7] Dump to tracker...")
-
-        if RUN_POA:
-            dump_poa_to_tracker(
-                pivot_poa_b2b_cc=pivot_poa_b2b_cc,
-                pivot_poa_fsbd=pivot_poa_fsbd,
-                pivot_poa_others=pivot_poa_others,
-            )
-
-        if RUN_LND:
-            dump_lnd_to_tracker(
-                lnd_b2b_cc=lnd_b2b_cc,
-                lnd_fsbd=lnd_fsbd,
-                lnd_others=lnd_others,
-            )
-    else:
-        print("\n[SKIP] DUMP_TRACKER disabled")
-
-    if DUMP_SANGGAHAN:
-        print("\n[8] Dump to sanggahan...")
-
-        if RUN_POA:
-            dump_poa_to_sanggahan(
-                pivot_poa_b2b_cc=pivot_poa_b2b_cc,
-                pivot_poa_fsbd=pivot_poa_fsbd,
-                pivot_poa_others=pivot_poa_others,
-            )
-
-        if RUN_LND:
-            dump_lnd_to_sanggahan(
-                lnd_b2b_cc=lnd_b2b_cc,
-                lnd_fsbd=lnd_fsbd,
-                lnd_others=lnd_others,
-            )
-    else:
-        print("\n[SKIP] DUMP_SANGGAHAN disabled")
-
-    print("\n=== DAY 2 POA + LND DONE ===")
+    print("\n=== LM DAY 2 DONE ===")
 
     return {
-        "poa_results": poa_results,
-        "lnd_results": lnd_results,
-        "compiled_poa_b2b_cc": compiled_poa_b2b_cc,
-        "compiled_poa_fsbd": compiled_poa_fsbd,
-        "compiled_poa_others": compiled_poa_others,
-        "pivot_poa_b2b_cc": pivot_poa_b2b_cc,
-        "pivot_poa_fsbd": pivot_poa_fsbd,
-        "pivot_poa_others": pivot_poa_others,
-        "lnd_b2b_cc": lnd_b2b_cc,
-        "lnd_fsbd": lnd_fsbd,
-        "lnd_others": lnd_others,
+        "raw": results,
+        "tracker": tracker_results,
     }
 
 
