@@ -115,7 +115,7 @@ def build_html_sort_email(
       <ul>
         <li>Raw data dalam perhitungan tracker akan parallel diisi setelah email terkirim.</li>
         <li>Sanggahan untuk Tracker KPI maksimal dilakukan sampai tanggal <b>10 setiap bulannya.</b></li>
-        <li>Sanggahan dapat langsung dikirimkan melalui form berikut:</li>
+        <li>Sanggahan dapat langsung dikirimkan melalui form berikut:({form_html})</li>
         <li><b>Wajib menggunakan template</b>yang sudah disediakan pada link terkait ({template_html}) dengan mengisi raw data dan summary secara lengkap. Jika tidak sesuai, sanggahan ditolak.</li>
         <li><b>Selain data dari Metabase, sanggahan akan ditolak.</b></li>
         <li>Mohon isi data dengan lengkap dan jelas untuk memudahkan tim dalam validasi sanggahan. Jika terdapat sanggahan melalui email maka sanggahan tidak akan diterima.</li>
