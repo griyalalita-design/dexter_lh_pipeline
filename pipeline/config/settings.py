@@ -12,48 +12,19 @@ SERVICE_ACCOUNT_FILE = "service_account.json"
 GSHEET = {
     # Tracker utama (tempat dump semua data performance)
     "tracker": {
-        "url": "https://docs.google.com/spreadsheets/d/10jwwERVKLvdrk7tkmqVXeZHGp3Q1lV_2IjFsc6fXQhQ/edit?gid=911977561#gid=911977561",
-        "sheet_id": "10jwwERVKLvdrk7tkmqVXeZHGp3Q1lV_2IjFsc6fXQhQ",  # ambil dari URL
+        "url": "https://docs.google.com/spreadsheets/d/18-eD-KZGO_EQjp5-3Kjcgx339rcA5pfVetBmog-K_Ns/edit?pli=1&gid=47925641#gid=47925641",
+        "sheet_id": "18-eD-KZGO_EQjp5-3Kjcgx339rcA5pfVetBmog-K_Ns",  # ambil dari URL
         "tabs": {
-            "raw_data_all":  "Raw Data [All]",
-            "raw_data_cost": "Raw Data [Cost]",
-            "recipients": "recipients",
-            "master_tracker_by_hub": "Master Tracker by Hub",
+            "raw_data_compile":  "Raw Data Compile",
+            "movement_volume": "Movement Volume",
         },
         # Range yang di-clear saat Day 1 (sesuaikan)
         "clear_ranges": {
-            "raw_data_all": ["C4:I", "P4:V", "AC4:AI","AP4:AR","AY4:BA","BH4:BJ","BO4:BT"],
-            "raw_data_cost": ["B3:K"]
+            "raw_data_compile": ["A6:D500", "G6:J500", "M6:P500","S6:V500","Y6:AB500","AE6:AH500","AK6:AN500","AQ6:AT500","AW6:BA500", "BD6:BH500","BK6:BM500","BP6:BR500","BU6:BW16"],
+            "movement_volume": ["A3:F"]
         },
     },
     
-    # Gsheet sanggahan
-    "sanggahan": {
-        "url": "https://docs.google.com/spreadsheets/d/1q1CkYFiZQKRvfYDjZGOJmqNOndbH3hd7Du_Pq0Wn7AU/edit?gid=1000001726#gid=1000001726",
-        "sheet_id": "1q1CkYFiZQKRvfYDjZGOJmqNOndbH3hd7Du_Pq0Wn7AU",
-        "tabs": {
-            "poa_iv_b2b_all_b2c_cold": "POA IV B2B All & B2C Cold",
-            "poa_iv_keyshipper": "POA IV Keyshipper" ,
-            "poa_iv_others": "POA IV Others",
-            "lnd_rate_b2b_all_b2c_cold": "LnD Rate B2B All & B2C Cold",
-            "lnd_rate_keyshipper" : "LnD Rate Keyshipper",
-            "lnd_rate_others":"LnD Rate Others",
-            "dws":"DWS",
- 
-              # sesuaikan nama tab
-        },
-        # Range yang di-clear di semua tab sanggahan (sesuaikan)
-        "clear_ranges": {
-              "poa_iv_b2b_all_b2c_cold": ["A3:M"],
-              "poa_iv_keyshipper": ["A3:M"],
-              "poa_iv_others": ["A3:M"],
-              "lnd_rate_b2b_all_b2c_cold": ["A3:H"],
-              "lnd_rate_keyshipper": ["A3:H"],
-              "lnd_rate_others": ["A3:H"],
-              "dws" : ["A3:K"],
-     
-        }
-    },
 
  # Gsheet PNS - sumber list shipper (JANGAN diedit, read only)
     "pns": {
@@ -82,14 +53,6 @@ GSHEET = {
         "start_cell": "A2",
     },
 
-    # Gsheet DWS dari tim Sort
-    "dws": {
-        "url": "https://docs.google.com/spreadsheets/d/1wm7fyvG_AMlK8U2gCBKDr0_Hb_17fFKW21373vjf2xM/edit?gid=0#gid=0",
-        "sheet_id": "1wm7fyvG_AMlK8U2gCBKDr0_Hb_17fFKW21373vjf2xM",
-        "tabs": {
-            "main": "Pivot", # sesuaikan nama tab
-        }
-    },
 
     # Gsheet CPP dari tim PSP
     "cpp": {
@@ -100,24 +63,6 @@ GSHEET = {
         }
     },
 
-    # Gsheet staff list dari SORT
-    "staff_list": {
-        "url": "https://docs.google.com/spreadsheets/d/1s4BQ2TJYxxY-BttqgHvB185ONZlQ36pc0Bkz5NooSTU/edit?gid=664145533#gid=664145533",
-        "sheet_id": "1s4BQ2TJYxxY-BttqgHvB185ONZlQ36pc0Bkz5NooSTU",
-        "tabs": {
-            "main": "USE THIS",
-        },
-    },
-
-    # Gsheet Converter (data ke rupiah)
-    "converter": {
-        "url": "https://docs.google.com/spreadsheets/d/1Sn2HisZcT81duWuWtKpVx_E_8192XeFIwtXrrDoSpGQ/edit?gid=0#gid=0",
-        "sheet_id": "1Sn2HisZcT81duWuWtKpVx_E_8192XeFIwtXrrDoSpGQ",
-        "tabs": {
-            "master_tracker_by_hub": "Master Tracker by Hub",      # sesuaikan nama tab
-            "staff_list":   "Staff List",  # sesuaikan nama tab
-        }
-    },
 
     # Gsheet config — tempat kamu simpen Metabase token
     "config": {
@@ -126,15 +71,7 @@ GSHEET = {
             "main": "App Password & API Keys",  # nama tab tempat token disimpen
         },
         "token_cell": "B2",  # cell tempat token Metabase
-    },
-
-    "lm_mom_recap": {
-    "sheet_id": "1kSSSvXLcQYmYZgsl77FenEKbWZpGN9bujG7B_5ImKOU",
-    "tabs": {
-        "monthly_snapshot": "Monthly Snapshot",
-        "mom_analysis": "MOM Analysis"},
-    },
-}
+    }
 
 # ── Metabase ─────────────────────────────────────────────────
 METABASE_CONFIG = {
