@@ -128,7 +128,7 @@ def run():
     tracker_id = GSHEET["tracker"]["sheet_id"]
 
     # Clear Raw Data [All]
-    raw_all_tab = GSHEET["tracker"]["tabs"]["raw_data_all"]
+    raw_all_tab = GSHEET["tracker"]["tabs"]["raw_data_compile"]
     raw_all_ranges = _iter_ranges(GSHEET["tracker"].get("clear_ranges", {}).get("raw_data_compile", []))
     for rng in raw_all_ranges:
         clear_range(tracker_id, raw_all_tab, rng)
