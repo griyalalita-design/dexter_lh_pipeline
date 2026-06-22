@@ -90,9 +90,7 @@ def get_email_sender_from_config():
 def build_html_sort_email(
     period_label: str,
     tracker_url: str,
-    metabase_url: str,
-    sosialisasi_url: str,
-    sanggahan_url: str,
+    form_url: str,
     template_url: str,
 ) -> str:
     blue_color = "#1a73e8"
