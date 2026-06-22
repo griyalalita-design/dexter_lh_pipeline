@@ -123,33 +123,19 @@ def run():
     # print(f"=== DAY 1 - Persiapan data bulan {bulan} ===")
 
     # STEP 1: Cleansing Tracker
-    print("\n[1/3] Cleansing tracker...")
+    print("\n[1/2] Cleansing tracker...")
 
     tracker_id = GSHEET["tracker"]["sheet_id"]
 
     # Clear Raw Data [All]
     raw_all_tab = GSHEET["tracker"]["tabs"]["raw_data_all"]
-    raw_all_ranges = _iter_ranges(GSHEET["tracker"].get("clear_ranges", {}).get("raw_data_all", []))
+    raw_all_ranges = _iter_ranges(GSHEET["tracker"].get("clear_ranges", {}).get("raw_data_compile", []))
     for rng in raw_all_ranges:
         clear_range(tracker_id, raw_all_tab, rng)
 
-    # Clear Raw Data [Cost]
-    raw_cost_tab = GSHEET["tracker"]["tabs"]["raw_data_cost"]
-    raw_cost_ranges = _iter_ranges(GSHEET["tracker"].get("clear_ranges", {}).get("raw_data_cost", []))
-    for rng in raw_cost_ranges:
-        clear_range(tracker_id, raw_cost_tab, rng)
 
-    # STEP 2: Cleansing Sanggahan (semua tab)
-    print("\n[2/3] Cleansing sanggahan...")
-
-    sanggahan_id = GSHEET["sanggahan"]["sheet_id"]
-    clear_conf = GSHEET["sanggahan"].get("clear_ranges", ["A2:Z1000"])
-    for tab_key, tab_name in GSHEET["sanggahan"]["tabs"].items():
-        for rng in _ranges_for_tab(clear_conf, tab_key):
-            clear_range(sanggahan_id, tab_name, rng)
-
-    # STEP 3: Update Key Shipper dari PNS
-    print("\n[3/3] Update Key Shipper dari PNS...")
+    # STEP 2: Update Key Shipper dari PNS
+    print("\n[2/2] Update Key Shipper dari PNS...")
     _update_key_shipper_from_pns()
 
     print("\nDay 1 selesai! Tracker & sanggahan sudah bersih, Key Shipper updated.")
