@@ -18,9 +18,9 @@ SMTP_HOST = "smtp.gmail.com"
 SMTP_PORT = 465
 
 # hardcode links
-METABASE_URL = "https://docs.google.com/spreadsheets/d/10jwwERVKLvdrk7tkmqVXeZHGp3Q1lV_2IjFsc6fXQhQ/edit?gid=26110973#gid=26110973"
-SOSIALISASI_URL = "https://docs.google.com/presentation/d/1uUuU5E4crqCGKUeeAwQlq18pLSqVEWl6VMrgqiGbK8k/edit?slide=id.g3530d417fc4_0_85#slide=id.g3530d417fc4_0_85"
-TEMPLATE_URL = "https://docs.google.com/spreadsheets/d/13EgXGBtwCU-ppzoMvCMGbRqa-yVAOEY6gBqQJoHfMQc/edit?gid=390142677#gid=390142677"
+# METABASE_URL = "https://docs.google.com/spreadsheets/d/10jwwERVKLvdrk7tkmqVXeZHGp3Q1lV_2IjFsc6fXQhQ/edit?gid=26110973#gid=26110973"
+FORM_URL = "https://docs.google.com/forms/d/e/1FAIpQLSdgGuMdd39VF_cSJQ8XOVzK_tG24Y2Ue1HQR8FZJhh3I2Torw/viewform"
+TEMPLATE_URL = "https://docs.google.com/spreadsheets/d/176DKB0gr532W6t9WjTXSrkByDa8wYNghrS0w_pZ37yw/edit?gid=390142677#gid=390142677"
 
 
 def get_previous_month_label() -> str:
@@ -101,9 +101,7 @@ def build_html_sort_email(
     link_red_style = f'style="color:{red_color};text-decoration:underline;font-weight:700"'
 
     tracker_html = f'<a href="{tracker_url}" target="_blank" {link_common_style}>ID SORT KPI Tracker LINK</a>'
-    metabase_html = f'<a href="{metabase_url}" target="_blank" {link_common_style}>LINK METABASE</a>'
-    sosialisasi_html = f'<a href="{sosialisasi_url}" target="_blank" {link_common_style}>LINK SOSIALISASI</a>'
-    sanggahan_html = f'<a href="{sanggahan_url}" target="_blank" {link_red_style}>LINK SANGGAHAN</a>'
+    form_html = f'<a href="{form_url}" target="_blank" {link_red_style}>LINK FORM SANGGAHAN</a>'
     template_html = f'<a href="{template_url}" target="_blank" {link_common_style}>LINK TEMPLATE</a>'
 
     return f"""
@@ -111,21 +109,18 @@ def build_html_sort_email(
     <body style="font-family: Arial, sans-serif; font-size: 13.5px; color: #222; line-height: 1.55;">
       <p>Dear all,</p>
 
-      <p>Berikut adalah link untuk sheet <b>SORT KPI Tracker</b> periode <b>{period_label}</b>: {tracker_html}</p>
-      <p>Berikut juga link <b>Metabase</b> yang dapat digunakan untuk menarik data secara mandiri untuk monitoring harian: {metabase_html}</p>
-
-      <p>Untuk monitoring performance harian yang belum di-update di tracker bisa diakses secara mandiri dari link-link pada gsheet di atas.</p>
+      <p>Tracker Linehaul KPI untuk periode <b>{period_label}</b> dapat diakses pada link berikut: {tracker_html}</p>
 
       <p><b>NOTE:</b></p>
       <ul>
-        <li>Perhitungan KPI Sort menggunakan skema penyesuaian KPI Sort terbaru. Perubahan parameter mengikuti sosialisasi pada link berikut: {sosialisasi_html}.</li>
-        <li>Sanggahan dibuka pada tanggal <b>2–12 setiap bulannya</b>, dan sanggahan dapat langsung dilakukan melalui google sheet berikut: {sanggahan_html}.</li>
-        <li>Wajib menggunakan template yang sudah disediakan pada link terkait ({template_html}) dengan mengisi raw data dan summary secara lengkap. Jika tidak sesuai, sanggahan ditolak.</li>
-        <li>Selain data dari Metabase, sanggahan akan ditolak.</li>
+        <li>Raw data dalam perhitungan tracker akan parallel diisi setelah email terkirim.</li>
+        <li>Sanggahan untuk Tracker KPI maksimal dilakukan sampai tanggal <b>10 setiap bulannya.</b></li>
+        <li>Sanggahan dapat langsung dikirimkan melalui form berikut:</li>
+        <li><b>Wajib menggunakan template</b>yang sudah disediakan pada link terkait ({template_html}) dengan mengisi raw data dan summary secara lengkap. Jika tidak sesuai, sanggahan ditolak.</li>
+        <li><b>Selain data dari Metabase, sanggahan akan ditolak.</b></li>
         <li>Mohon isi data dengan lengkap dan jelas untuk memudahkan tim dalam validasi sanggahan. Jika terdapat sanggahan melalui email maka sanggahan tidak akan diterima.</li>
       </ul>
 
-      <p>Untuk teman-teman Sort FST, <b>@FST Sort (ID)</b>, jika ada sort team yang terlewat di email ini mohon dibantu informasikan langsung ke tim terkait untuk tracker dan link Metabase-nya.</p>
 
       <p>Terima kasih.</p>
       <p>Regards,<br><b>BI-Reporting</b></p>
@@ -186,14 +181,12 @@ def run():
         raise ValueError("Tab Recipients kosong atau tidak ada recipient valid.")
 
     period_label = get_previous_month_label()
-    subject = f"(ID) Sort KPI Progressive Tiering - {period_label}"
+    subject = f"(ID) Linehaul KPI Progressive Tiering - {period_label}"
 
     html_body = build_html_sort_email(
         period_label=period_label,
         tracker_url=GSHEET["tracker"]["url"],
-        metabase_url=METABASE_URL,
-        sosialisasi_url=SOSIALISASI_URL,
-        sanggahan_url=GSHEET["sanggahan"]["url"],
+        form_url=FORM_URL,
         template_url=TEMPLATE_URL,
     )
 
