@@ -54,6 +54,15 @@ GSHEET = {
         "start_cell": "A2",
     },
 
+    # Gsheet RDO dari tim PSP
+    "rdo_comp": {
+        "url": "https://docs.google.com/spreadsheets/d/19uPlzTog3czwphQERVpjybfOB-CTy62yftjtulgcC3g/edit?gid=0#gid=0",
+        "sheet_id": "19uPlzTog3czwphQERVpjybfOB-CTy62yftjtulgcC3g",
+        "tabs": {
+            "main": "USE THIS",
+            "raw_data": "Raw Data RDO"# sesuaikan nama tab
+        }
+
 
     # Gsheet CPP dari tim PSP
     "cpp": {
