@@ -12,8 +12,8 @@ SERVICE_ACCOUNT_FILE = "service_account.json"
 GSHEET = {
     # Tracker utama (tempat dump semua data performance)
     "tracker": {
-        "url": "https://docs.google.com/spreadsheets/d/18-eD-KZGO_EQjp5-3Kjcgx339rcA5pfVetBmog-K_Ns/edit?pli=1&gid=47925641#gid=47925641",
-        "sheet_id": "18-eD-KZGO_EQjp5-3Kjcgx339rcA5pfVetBmog-K_Ns",  # ambil dari URL
+        "url": "https://docs.google.com/spreadsheets/d/1IdZJMXcBYcD8b7WU0P6joAepfiNcNdUmh2m1fMt0A_w/edit?gid=47925641#gid=47925641",
+        "sheet_id": "1IdZJMXcBYcD8b7WU0P6joAepfiNcNdUmh2m1fMt0A_w",  # ambil dari URL
         "tabs": {
             "raw_data_compile":  "Raw Data Compile",
             "movement_volume": "Movement Volume",
