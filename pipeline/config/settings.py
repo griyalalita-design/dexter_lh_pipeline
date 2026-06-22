@@ -17,6 +17,7 @@ GSHEET = {
         "tabs": {
             "raw_data_compile":  "Raw Data Compile",
             "movement_volume": "Movement Volume",
+            "recipients": "recipients",
         },
         # Range yang di-clear saat Day 1 (sesuaikan)
         "clear_ranges": {
