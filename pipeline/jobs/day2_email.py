@@ -98,7 +98,7 @@ def build_html_sort_email(
     link_common_style = f'style="color:{blue_color};text-decoration:underline;font-weight:600"'
     link_red_style = f'style="color:{red_color};text-decoration:underline;font-weight:700"'
 
-    tracker_html = f'<a href="{tracker_url}" target="_blank" {link_common_style}>ID SORT KPI Tracker LINK</a>'
+    tracker_html = f'<a href="{tracker_url}" target="_blank" {link_common_style}>ID Linehaul KPI Tracker LINK</a>'
     form_html = f'<a href="{form_url}" target="_blank" {link_red_style}>LINK FORM SANGGAHAN</a>'
     template_html = f'<a href="{template_url}" target="_blank" {link_common_style}>LINK TEMPLATE</a>'
 
