@@ -72,7 +72,7 @@ GSHEET = {
         },
         "token_cell": "B2",  # cell tempat token Metabase
     }
-
+}
 # ── Metabase ─────────────────────────────────────────────────
 METABASE_CONFIG = {
     "poa": {
