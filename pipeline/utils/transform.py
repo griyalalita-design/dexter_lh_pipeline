@@ -82,12 +82,12 @@ def transform_poa_iv(df_raw):
 
     tracker_df = (
         df_raw
-        .groupby("orig_hub_name", as_index=False)
+        .groupby("origin_hub_name", as_index=False)
         .agg(
             ontime_count=("arrival_status", lambda x: (x == "Ontime").sum()),
             trip_count=("trip_id", "count")
         )
-        .sort_values("orig_hub_name")
+        .sort_values("origin_hub_name")
     )
 
     return tracker_df
@@ -103,7 +103,7 @@ def transform_n0_completion(df_raw):
         return df_raw
     tracker_df = (
     df_raw
-    .groupby(["dest_hub_date","dest_hub_name"], as_index=False)
+    .groupby(["dest_hub_name"], as_index=False)
     .agg({
         "n0_delivery_complete_flag":"sum",
         "vol": "sum"
