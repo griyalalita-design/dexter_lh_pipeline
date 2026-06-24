@@ -75,115 +75,114 @@ def categorize_shippers(df_pns: pd.DataFrame):
         "key_shipper": key_shipper,
     }
 
-def transform_poa(df_raw: pd.DataFrame) -> pd.DataFrame:
-    """
-    Transformasi data POA-IV.
-    Pivot by origin hub: hit, not hit, total.
+def transform_poa_iv(df_raw):
 
-    Args:
-        df_raw: DataFrame raw dari Metabase
+    if df_raw.empty:
+        return df_raw
 
-    Returns:
-        DataFrame hasil pivot
-    """
-    # TODO: sesuaikan nama kolom dengan hasil Metabase kamu
-    # Contoh pivot: origin_hub sebagai index, status sebagai columns
-    df = df_raw.copy()
-
-    pivot = df.pivot_table(
-        index="origin_hub",       # TODO: sesuaikan nama kolom
-        columns="status",         # TODO: sesuaikan nama kolom (hit/not hit)
-        values="shipment_id",     # TODO: sesuaikan nama kolom
-        aggfunc="count",
-        fill_value=0,
-    ).reset_index()
-
-    # Rename kolom biar rapi
-    pivot.columns.name = None
-    pivot["total"] = pivot.sum(axis=1, numeric_only=True)
-
-    return pivot
-
-
-def transform_lnd(df_raw: pd.DataFrame) -> pd.DataFrame:
-    """
-    Transformasi data LnD.
-    Filter hanya crossdock, lalu pivot kolom yang diperlukan.
-
-    Args:
-        df_raw: DataFrame raw dari Metabase
-
-    Returns:
-        DataFrame hasil transformasi
-    """
-    df = df_raw.copy()
-
-    # Filter crossdock aja
-    df = df[df["type"] == "crossdock"]  # TODO: sesuaikan nama kolom
-
-    # TODO: pivot sesuai kolom yang diperlukan
-    # Ini placeholder, sesuaikan dengan kebutuhan
-    pivot = df.pivot_table(
-        index="hub_id",           # TODO: sesuaikan
-        values="value",           # TODO: sesuaikan
-        aggfunc="sum",
-        fill_value=0,
-    ).reset_index()
-
-    return pivot
-
-
-def merge_with_staff(df_data: pd.DataFrame, df_staff: pd.DataFrame) -> pd.DataFrame:
-    """
-    Merge data performance dengan staff list tim SORT.
-
-    Args:
-        df_data  : DataFrame performance
-        df_staff : DataFrame staff list
-
-    Returns:
-        DataFrame hasil merge
-    """
-    # TODO: sesuaikan key merge dengan kolom yang ada
-    df_merged = df_data.merge(
-        df_staff,
-        on="hub_id",    # TODO: sesuaikan kolom key
-        how="left",
+    tracker_df = (
+        df_raw
+        .groupby("orig_hub_name", as_index=False)
+        .agg(
+            ontime_count=("arrival_status", lambda x: (x == "Ontime").sum()),
+            trip_count=("trip_id", "count")
+        )
+        .sort_values("orig_hub_name")
     )
-    return df_merged
 
+    return tracker_df
 
-def check_anomaly(df: pd.DataFrame, numeric_cols: list) -> pd.DataFrame:
+def transform_n0_completion(df_raw):
     """
-    Check anomaly di data: DIV/0, N/A, atau nilai kosong.
-
-    Args:
-        df           : DataFrame yang mau dicek
-        numeric_cols : list kolom numerik yang mau dicek
-
-    Returns:
-        DataFrame berisi baris-baris yang anomaly
+    Tracker Output:
+    Row Labels (dest_hub_name)
+    Sum of n0_delivery_complete_flag
+    Sum of vol
     """
-    anomaly_rows = pd.DataFrame()
+    if df_raw.empty:
+        return df_raw
+    tracker_df = (
+    df_raw
+    .groupby(["dest_hub_date","dest_hub_name"], as_index=False)
+    .agg({
+        "n0_delivery_complete_flag":"sum",
+        "vol": "sum"
+    })
+    .sort_values("dest_hub_name")
+)
 
-    for col in numeric_cols:
-        if col not in df.columns:
-            continue
-        # Check DIV/0 atau string error
-        mask_error = df[col].astype(str).str.contains("#DIV|#N/A|#REF|#VALUE", na=False)
-        # Check null
-        mask_null = df[col].isnull()
-        # Check nol (ga ada performance)
-        mask_zero = df[col] == 0
+    return tracker_df
 
-        anomaly = df[mask_error | mask_null | mask_zero].copy()
-        if len(anomaly) > 0:
-            anomaly["anomaly_col"] = col
-            anomaly_rows = pd.concat([anomaly_rows, anomaly])
+def transform_shipment_completion(df_raw):
 
-    if len(anomaly_rows) > 0:
-        print(f"Ditemukan {len(anomaly_rows)} baris anomaly!")
-    else:
-        print("Tidak ada anomaly ditemukan.")
+    if df_raw.empty:
+        return df_raw
+    tracker_df = (
+    df_raw
+    .groupby(["orig_hub_name"], as_index=False)
+    .agg({
+        "shipment_compliance_flag":"sum",
+        "trip_id": "count"
+    })
+    .sort_values("orig_hub_name")
+)
 
-    return anomaly_rows.drop_duplicates()
+    return tracker_df
+
+def transform_into_hub_completion(df_raw):
+
+    if df_raw.empty:
+        return df_raw
+    tracker_df = (
+    df_raw
+    .groupby(["dest_hub_name"], as_index=False)
+    .agg(
+            hit_count=("mmda_adoption", lambda x: (x == "MMDA").sum()),
+            trip_count=("trip_id", "count")
+        )
+    .sort_values("dest_hub_name")
+)
+
+    return tracker_df
+
+def transform_rsvn_completed(df_raw):
+
+    if df_raw.empty:
+        return df_raw
+    tracker_df = (
+    df_raw
+    .groupby(["hub_name"], as_index=False)
+    .agg({
+        "rsvn_n0_success_hit":"sum",
+        "rsvn_ready": "sum"
+    })
+    .sort_values("hub_name")
+)
+
+    return tracker_df
+
+
+def transform_rdo_rtd(df_raw):
+    if df_raw.empty:
+        return df_raw
+
+    cols = [
+        "bundle_tracking_id",
+        "rdo_tracking_id",
+        "hub_name",
+        "hub_region",
+        "fwd_success_datetime",
+        "add_to_shipment_datetime",
+        "orig_shipment_van_inbound_datetime",
+        "sla_ats_days",
+        "sla_vi_days",
+        "sla_ats_hit_flag",
+        "sla_vi_hit_flag"  
+    ]
+
+    missing_cols = [c for c in cols if c not in df_raw.columns]
+    if missing_cols:
+        raise ValueError(f"Kolom RDO tidak ditemukan: {missing_cols}")
+
+    return df_raw[cols].copy()
+    
