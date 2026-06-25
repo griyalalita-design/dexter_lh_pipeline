@@ -88,28 +88,28 @@ TRANSFORM_MAP = {
 
 TRACKER_WRITE_MAP = {
     "iv_poa_shopee_lazada": [
-        {"tracker_key": "tracker", "tab_key": "raw_data_compile", "start_cell": "A6"},
+        {"tracker_key": "tracker", "tab_key": "raw_data_compile", "start_cell": "BK6"},
     ],
     "iv_poa_key_shipper": [
-        {"tracker_key": "tracker", "tab_key": "raw_data_compile", "start_cell": "G6"},
+        {"tracker_key": "tracker", "tab_key": "raw_data_compile", "start_cell": "AF6"},
     ],
     "iv_poa_b2b_all_b2c_cc": [
-        {"tracker_key": "tracker", "tab_key": "raw_data_compile", "start_cell": "M6"},
-    ],
-    "n0_completion_b2b_all_b2c_cc": [
-        {"tracker_key": "tracker", "tab_key": "raw_data_compile", "start_cell": "S6"},
-    ],
-    "no_rsvn_completed_b2b_all_b2c_cc": [
         {"tracker_key": "tracker", "tab_key": "raw_data_compile", "start_cell": "Y6"},
     ],
-    "shipment_compliance": [
-        {"tracker_key": "tracker", "tab_key": "raw_data_compile", "start_cell": "AE6"},
-    ],
-    "into_hub_compliance": [
+    "n0_completion_b2b_all_b2c_cc": [
         {"tracker_key": "tracker", "tab_key": "raw_data_compile", "start_cell": "AK6"},
     ],
+    "no_rsvn_completed_b2b_all_b2c_cc": [
+        {"tracker_key": "tracker", "tab_key": "raw_data_compile", "start_cell": "G6"},
+    ],
+    "shipment_compliance": [
+        {"tracker_key": "tracker", "tab_key": "raw_data_compile", "start_cell": "AX6"},
+    ],
+    "into_hub_compliance": [
+        {"tracker_key": "tracker", "tab_key": "raw_data_compile", "start_cell": "BE6"},
+    ],
     "rdo_rtd_b2b": [
-        {"tracker_key": "rdo_comp", "tab_key": "raw_data", "start_cell": "D2"},
+        {"tracker_key": "rdo_comp", "tab_key": "raw_data", "start_cell": "B6"},
     ],
 }
 
