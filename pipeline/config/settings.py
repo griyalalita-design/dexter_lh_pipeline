@@ -66,6 +66,11 @@ METABASE_CONFIG = {
                 {"id": "522e86b9-f7ea-45c6-ac0a-92ab57ca33e8", "type": "string/=", "value": ["COMPLETED", "ARRIVED"], "target": ["variable", ["dimension", ["template-tag", "status"]]]},
                 {"id": "6f7bd3bb-7a76-49ae-9f5e-ee78d1531118", "type": "date/single", "value": "start_date", "target": ["variable", ["template-tag", "exp_dep_start"]]},
             ],
+            "shipper_params_template": {
+                "shopee_lazada": [{"id": "6d243afd-9693-4b71-bd9d-43ba83ae3112", "type": "string/=", "value": [341107, 216977], "target": ["dimension", ["template-tag", "parent_id"]]},],
+                "key_shipper": [{"id": "054d3fb3-9f04-4d21-a56d-5f046d53281a", "type": "string/=", "value": "key_shipper", "target": ["dimension", ["template-tag", "shipper_id"]]},],
+                "b2b_all_b2c_cc": [{"id": "054d3fb3-9f04-4d21-a56d-5f046d53281a", "type": "string/=", "value": "b2b_all_b2c_cc", "target": ["dimension", ["template-tag", "shipper_id"]]},],
+            },
         },
         "n0_completion": {
             "url": "https://metabase.ninjavan.co/api/card/122260/query/json",
