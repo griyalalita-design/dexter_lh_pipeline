@@ -97,10 +97,10 @@ TRACKER_WRITE_MAP = {
         {"tracker_key": "tracker", "tab_key": "raw_data_compile", "start_cell": "Y6"},
     ],
     "n0_completion_b2b_all_b2c_cc": [
-        {"tracker_key": "tracker", "tab_key": "raw_data_compile", "start_cell": "AK6"},
+        {"tracker_key": "tracker", "tab_key": "raw_data_compile", "start_cell": "AL6"},
     ],
     "no_rsvn_completed_b2b_all_b2c_cc": [
-        {"tracker_key": "tracker", "tab_key": "raw_data_compile", "start_cell": "G6"},
+        {"tracker_key": "tracker", "tab_key": "raw_data_compile", "start_cell": "H6"},
     ],
     "shipment_compliance": [
         {"tracker_key": "tracker", "tab_key": "raw_data_compile", "start_cell": "AX6"},
