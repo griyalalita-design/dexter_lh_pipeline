@@ -3,12 +3,17 @@ SERVICE_ACCOUNT_FILE = "service_account.json"
 
 GSHEET = {
     "tracker": {
-        "url": "https://docs.google.com/spreadsheets/d/1IdZJMXcBYcD8b7WU0P6joAepfiNcNdUmh2m1fMt0A_w/edit",
-        "sheet_id": "1IdZJMXcBYcD8b7WU0P6joAepfiNcNdUmh2m1fMt0A_w",
+        "url": "https://docs.google.com/spreadsheets/d/1IdZJMXcBYcD8b7WU0P6joAepfiNcNdUmh2m1fMt0A_w/edit?gid=47925641#gid=47925641",
+        "sheet_id": "1IdZJMXcBYcD8b7WU0P6joAepfiNcNdUmh2m1fMt0A_w",  # ambil dari URL
         "tabs": {
-            "raw_data_compile": "Raw Data Compile",
+            "raw_data_compile":  "Raw Data Compile",
             "movement_volume": "Movement Volume",
             "recipients": "recipients",
+        },
+        # Range yang di-clear saat Day 1 (sesuaikan)
+        "clear_ranges": {
+            "raw_data_compile": ["B6:D500", "H6:J500", "N6:P500","T6:V500","Z6:AB500","AF6:AH500","AL6:AN500","AR6:AT500","AX6:BA500", "BE6:BH500","BL6:BN500","BR6:BT500","BW6:BY16"],
+            "movement_volume": ["A3:F"]
         },
     },
     "pns": {
