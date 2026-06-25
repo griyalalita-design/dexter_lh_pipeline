@@ -58,9 +58,9 @@ SHIPPER_GROUPS = {
 
 
 LH_REPORT_PLAN = [
-    {"report_key": "iv_poa", "segment_key": "shopee_lazada"},
-    {"report_key": "iv_poa", "segment_key": "key_shipper"},
-    {"report_key": "iv_poa", "segment_key": "b2b_all_b2c_cc"},
+    # {"report_key": "iv_poa", "segment_key": "shopee_lazada"},
+    # {"report_key": "iv_poa", "segment_key": "key_shipper"},
+    # {"report_key": "iv_poa", "segment_key": "b2b_all_b2c_cc"},
     {"report_key": "n0_completion", "segment_key": "b2b_all_b2c_cc"},
     {
         "report_key": "no_rsvn_completed_b2b_all_b2c_cc",
