@@ -69,7 +69,7 @@ def transform_shipment_completion(df_raw: pd.DataFrame) -> pd.DataFrame:
         .agg(
             {
                 "shipment_compliance_flag": "sum",
-                "trip_id": "count",
+                "shipment_id": "count",
             }
         )
         .sort_values("orig_hub_region","orig_hub_name")
@@ -86,7 +86,7 @@ def transform_into_hub_completion(df_raw: pd.DataFrame) -> pd.DataFrame:
         df_raw.groupby(["dest_hub_region","dest_hub_name"], as_index=False)
         .agg(
             hit_count=("mmda_adoption", lambda x: (x == "MMDA").sum()),
-            trip_count=("trip_id", "count"),
+            trip_count=("shipment_id", "count"),
         )
         .sort_values("dest_hub_region","dest_hub_name")
     )
