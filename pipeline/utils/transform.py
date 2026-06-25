@@ -65,14 +65,14 @@ def transform_shipment_completion(df_raw: pd.DataFrame) -> pd.DataFrame:
         return df_raw
 
     tracker_df = (
-        df_raw.groupby(["orig_hub_region","orig_hub_name"], as_index=False)
+        df_raw.groupby(["orig_hub_region", "orig_hub_name"], as_index=False)
         .agg(
             {
                 "shipment_compliance_flag": "sum",
                 "shipment_id": "count",
             }
         )
-        .sort_values("orig_hub_region","orig_hub_name")
+        .sort_values(by=["orig_hub_region", "orig_hub_name"])
     )
 
     return tracker_df
@@ -83,12 +83,12 @@ def transform_into_hub_completion(df_raw: pd.DataFrame) -> pd.DataFrame:
         return df_raw
 
     tracker_df = (
-        df_raw.groupby(["dest_hub_region","dest_hub_name"], as_index=False)
+        df_raw.groupby(["dest_hub_region", "dest_hub_name"], as_index=False)
         .agg(
             hit_count=("mmda_adoption", lambda x: (x == "MMDA").sum()),
             trip_count=("shipment_id", "count"),
         )
-        .sort_values("dest_hub_region","dest_hub_name")
+        .sort_values(by=["dest_hub_region", "dest_hub_name"])
     )
 
     return tracker_df
