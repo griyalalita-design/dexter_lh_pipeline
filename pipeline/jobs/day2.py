@@ -52,11 +52,15 @@ SHIPPER_GROUPS = {
         "B2C Cold Chain Next Day",
     ],
     "aggregator": ["Aggregator Keyshipper"],
+    "key_shipper": ["FSBD Key Shipper"],
+    "shopee_lazada": [],
 }
 
 
 LH_REPORT_PLAN = [
-    {"report_key": "iv_poa"},
+    {"report_key": "iv_poa", "segment_key": "shopee_lazada"},
+    {"report_key": "iv_poa", "segment_key": "key_shipper"},
+    {"report_key": "iv_poa", "segment_key": "b2b_all_b2c_cc"},
     {"report_key": "n0_completion", "segment_key": "b2b_all_b2c_cc"},
     {
         "report_key": "no_rsvn_completed_b2b_all_b2c_cc",
@@ -71,7 +75,9 @@ LH_REPORT_PLAN = [
 
 
 TRANSFORM_MAP = {
-    "iv_poa": transform_poa_iv,
+    "iv_poa_shopee_lazada": transform_poa_iv,
+    "iv_poa_key_shipper": transform_poa_iv,
+    "iv_poa_b2b_all_b2c_cc": transform_poa_iv,
     "n0_completion_b2b_all_b2c_cc": transform_n0_completion,
     "no_rsvn_completed_b2b_all_b2c_cc": transform_rsvn_completed,
     "shipment_compliance": transform_shipment_completion,
@@ -81,20 +87,26 @@ TRANSFORM_MAP = {
 
 
 TRACKER_WRITE_MAP = {
-    "iv_poa": [
+    "iv_poa_shopee_lazada": [
         {"tracker_key": "tracker", "tab_key": "raw_data_compile", "start_cell": "A6"},
     ],
-    "n0_completion_b2b_all_b2c_cc": [
+    "iv_poa_key_shipper": [
         {"tracker_key": "tracker", "tab_key": "raw_data_compile", "start_cell": "G6"},
     ],
-    "no_rsvn_completed_b2b_all_b2c_cc": [
+    "iv_poa_b2b_all_b2c_cc": [
         {"tracker_key": "tracker", "tab_key": "raw_data_compile", "start_cell": "M6"},
     ],
-    "shipment_compliance": [
+    "n0_completion_b2b_all_b2c_cc": [
         {"tracker_key": "tracker", "tab_key": "raw_data_compile", "start_cell": "S6"},
     ],
-    "into_hub_compliance": [
+    "no_rsvn_completed_b2b_all_b2c_cc": [
         {"tracker_key": "tracker", "tab_key": "raw_data_compile", "start_cell": "Y6"},
+    ],
+    "shipment_compliance": [
+        {"tracker_key": "tracker", "tab_key": "raw_data_compile", "start_cell": "AE6"},
+    ],
+    "into_hub_compliance": [
+        {"tracker_key": "tracker", "tab_key": "raw_data_compile", "start_cell": "AK6"},
     ],
     "rdo_rtd_b2b": [
         {"tracker_key": "rdo_comp", "tab_key": "raw_data", "start_cell": "D2"},
