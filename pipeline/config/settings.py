@@ -121,7 +121,7 @@ METABASE_CONFIG = {
             ],
         },
         "into_hub_compliance": {
-            "url": "https://metabase.ninjavan.co/api/card/122256/query/json",
+            "url": "https://metabase.ninjavan.co/api/card/84219/query/json",
             "report_type": "lh",
             "common_params_template": [
                 {"id": "36dcdc26-b630-cf67-57ca-a1e36336804b", "type": "category", "value": ["day"], "target": ["variable", ["template-tag", "aggr"]]},
