@@ -138,7 +138,23 @@ TRACKER_WRITE_MAP = {
         {"tracker_key": "tracker", "tab_key": "raw_data_compile", "start_cell": "T6"},
     ],
 }
-
+CS_IV_DETAIL_WRITE_MAP = {
+    "cs_iv_shopee_lazada": {
+        "tracker_key": "cs_iv_detail",
+        "tab_key": "shopee_lazada",
+        "start_cell": "A1",
+    },
+    "cs_iv_key_shipper": {
+        "tracker_key": "cs_iv_detail",
+        "tab_key": "key_shipper",
+        "start_cell": "A1",
+    },
+    "cs_iv_b2b_all_b2c_cc": {
+        "tracker_key": "cs_iv_detail",
+        "tab_key": "b2b_all_b2c_cc",
+        "start_cell": "A1",
+    },
+}
 
 # CS_IV_DETAIL_WRITE_MAP = {
 #     # Optional: aktifkan kalau config GSheet detail sudah siap di settings.py.
