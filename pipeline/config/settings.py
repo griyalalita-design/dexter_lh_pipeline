@@ -74,7 +74,7 @@ METABASE_CONFIG = {
             "shipper_params_template": {
                 "shopee_lazada": [{"id": "327af4b4-52e1-413a-b3ae-411919069944", "type": "string/=", "value": [341107, 216977], "target": ["dimension", ["template-tag", "parent_id_coalesce"]]},],
                 "key_shipper": [
-                    {"id": "6a918c5e-b750-482a-a16f-739a420ac520", "type": "string/=", "value": "key_shipper", "target": ["dimension", ["template-tag", "shipper_id"]]},
+                    {"id": "6a918c5e-b750-482a-a16f-739a420ac520", "type": "string/=", "value": "agg_fsbd", "target": ["dimension", ["template-tag", "shipper_id"]]},
                     {"id": "327af4b4-52e1-413a-b3ae-411919069944", "type": "string/=", "value": [7474545], "target": ["dimension", ["template-tag", "parent_id_coalesce"]]}],
                 "b2b_all_b2c_cc": [{"id": "6a918c5e-b750-482a-a16f-739a420ac520", "type": "string/=", "value": "b2b_all_b2c_cc", "target": ["dimension", ["template-tag", "shipper_id"]]},],
             },
@@ -90,7 +90,7 @@ METABASE_CONFIG = {
             ],
             "shipper_params_template": {
                 "shopee_lazada": [{"id": "586a906e-a676-432c-b1d8-dc3b098bcc3a","type": "string/contains","value": [341107, 216977],"target": ["dimension", ["template-tag", "sf_parent_acc_id_coalesce"]],"options": {"case-sensitive": False},},],
-                "key_shipper": [{"id": "2939e663-5f31-4b48-890d-ef898ce1a0ea","type": "id","value":"key_shipper" ,"target": ["dimension", ["template-tag", "shipper_id"]]},
+                "key_shipper": [{"id": "2939e663-5f31-4b48-890d-ef898ce1a0ea","type": "id","value":"agg_fsbd" ,"target": ["dimension", ["template-tag", "shipper_id"]]},
                                {"id": "586a906e-a676-432c-b1d8-dc3b098bcc3a","type": "string/contains","value": [7474545],"target": ["dimension", ["template-tag", "sf_parent_acc_id_coalesce"]],"options": {"case-sensitive": False}}],
                 "b2b_all_b2c_cc": [{"id": "2939e663-5f31-4b48-890d-ef898ce1a0ea","type": "id","value":"b2b_all_b2c_cc" ,"target": ["dimension", ["template-tag", "shipper_id"]]}],
             },
