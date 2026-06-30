@@ -2,9 +2,18 @@ import copy
 import time
 from datetime import datetime, timedelta
 
+import numpy as np
 import pandas as pd
 
 from config.settings import GSHEET, METABASE_CONFIG
+
+try:
+    # Optional: isi di settings.py kalau DB schedule CS-IV mau ditaruh di config.
+    # Bisa berupa DataFrame, atau dict config GSheet: {"sheet_id": "...", "tab_name": "..."}
+    from config.settings import CS_IV_DB
+except ImportError:
+    CS_IV_DB = None
+
 from utils.gsheet import read_sheet, write_sheet
 from utils.metabase import get_token, tarik_metabase
 from utils.transform import (
@@ -61,8 +70,19 @@ LH_REPORT_PLAN = [
     {"report_key": "iv_poa", "segment_key": "shopee_lazada"},
     {"report_key": "iv_poa", "segment_key": "key_shipper"},
     {"report_key": "iv_poa", "segment_key": "b2b_all_b2c_cc"},
+
+    # CS-IV needs special transform:
+    # raw Metabase -> lookup schedule DB -> save detail -> pivot summary.
+    {"report_key": "cs_iv", "segment_key": "shopee_lazada"},
+    {"report_key": "cs_iv", "segment_key": "key_shipper"},
+    {"report_key": "cs_iv", "segment_key": "b2b_all_b2c_cc"},
+
     {"report_key": "n0_completion", "segment_key": "b2b_all_b2c_cc"},
-    {"report_key": "no_rsvn_completed_b2b_all_b2c_cc","segment_key": "b2b_all_b2c_cc","result_key": "no_rsvn_completed_b2b_all_b2c_cc",},
+    {
+        "report_key": "no_rsvn_completed_b2b_all_b2c_cc",
+        "segment_key": "b2b_all_b2c_cc",
+        "result_key": "no_rsvn_completed_b2b_all_b2c_cc",
+    },
     {"report_key": "shipment_compliance"},
     {"report_key": "into_hub_compliance"},
     # Uncomment after the report config is enabled in settings.py.
@@ -107,7 +127,40 @@ TRACKER_WRITE_MAP = {
     "rdo_rtd_b2b": [
         {"tracker_key": "rdo_comp", "tab_key": "raw_data", "start_cell": "B6"},
     ],
+    # Isi start_cell kalau summary CS-IV sudah punya slot di tracker.
+    "cs_iv_shopee_lazada": [
+        {"tracker_key": "tracker", "tab_key": "raw_data_compile", "start_cell": "BR6"},
+    ],
+    "cs_iv_key_shipper": [
+        {"tracker_key": "tracker", "tab_key": "raw_data_compile", "start_cell": "N6"},
+    ],
+    "cs_iv_b2b_all_b2c_cc": [
+        {"tracker_key": "tracker", "tab_key": "raw_data_compile", "start_cell": "T6"},
+    ],
 }
+
+
+# CS_IV_DETAIL_WRITE_MAP = {
+#     # Optional: aktifkan kalau config GSheet detail sudah siap di settings.py.
+#     # Contoh settings.py:
+#     # GSHEET["cs_iv_detail"] = {
+#     #     "sheet_id": "xxxxx",
+#     #     "tabs": {
+#     #         "shopee_lazada": "shopee_lazada",
+#     #         "key_shipper": "key_shipper",
+#     #         "b2b_all_b2c_cc": "b2b_all_b2c_cc",
+#     #     },
+#     # }
+#     # "cs_iv_shopee_lazada": [
+#     #     {"tracker_key": "cs_iv_detail", "tab_key": "shopee_lazada", "start_cell": "A1", "include_header": True},
+#     # ],
+#     # "cs_iv_key_shipper": [
+#     #     {"tracker_key": "cs_iv_detail", "tab_key": "key_shipper", "start_cell": "A1", "include_header": True},
+#     # ],
+#     # "cs_iv_b2b_all_b2c_cc": [
+#     #     {"tracker_key": "cs_iv_detail", "tab_key": "b2b_all_b2c_cc", "start_cell": "A1", "include_header": True},
+#     # ],
+# }
 
 
 def get_previous_month_period():
@@ -238,8 +291,7 @@ def sanitize_for_sheet(df):
     return cleaned.where(pd.notna(cleaned), "")
 
 
-def write_tracker_result(result_key, df_to_write):
-    destinations = TRACKER_WRITE_MAP.get(result_key, [])
+def write_with_destinations(result_key, df_to_write, destinations):
     if not destinations:
         print(f"[SKIP WRITE] {result_key}: belum ada mapping tujuan")
         return
@@ -254,6 +306,7 @@ def write_tracker_result(result_key, df_to_write):
         tracker_key = dest["tracker_key"]
         tab_key = dest["tab_key"]
         start_cell = dest["start_cell"]
+        include_header = dest.get("include_header", False)
 
         if tracker_key not in GSHEET:
             print(f"[SKIP WRITE] {result_key}: tracker_key belum ada di GSHEET: {tracker_key}")
@@ -271,10 +324,213 @@ def write_tracker_result(result_key, df_to_write):
                 sheet_name=sheet_name,
                 df=df_to_write,
                 start_cell=start_cell,
-                include_header=False,
+                include_header=include_header,
             )
         except TypeError:
             write_sheet(sheet_id, sheet_name, df_to_write)
+
+
+def write_tracker_result(result_key, df_to_write):
+    write_with_destinations(
+        result_key=result_key,
+        df_to_write=df_to_write,
+        destinations=TRACKER_WRITE_MAP.get(result_key, []),
+    )
+
+
+def write_cs_iv_detail_result(result_key, detail_df):
+    write_with_destinations(
+        result_key=f"{result_key}_detail",
+        df_to_write=detail_df,
+        destinations=CS_IV_DETAIL_WRITE_MAP.get(result_key, []),
+    )
+
+
+def load_cs_iv_db():
+    """Load CS-IV schedule DB.
+
+    Support beberapa bentuk supaya fleksibel:
+    1. CS_IV_DB di settings.py berupa pandas DataFrame.
+    2. CS_IV_DB di settings.py berupa dict:
+       {"sheet_id": "...", "tab_name": "..."}
+       atau {"sheet_id": "...", "tab_key": "main", "tabs": {"main": "..."}}
+    3. GSHEET["cs_iv_db"] di settings.py dengan struktur mirip key_shipper.
+    """
+    cfg = CS_IV_DB
+
+    if isinstance(cfg, pd.DataFrame):
+        return cfg.copy()
+
+    if cfg is None:
+        cfg = GSHEET.get("cs_iv_db")
+
+    if cfg is None:
+        raise ValueError(
+            "CS_IV_DB belum diset. Tambahkan CS_IV_DB atau GSHEET['cs_iv_db'] di settings.py."
+        )
+
+    if isinstance(cfg, dict):
+        sheet_id = cfg.get("sheet_id")
+        if not sheet_id:
+            raise ValueError("CS_IV_DB/GSHEET['cs_iv_db'] harus punya key 'sheet_id'.")
+
+        if "tab_name" in cfg:
+            sheet_name = cfg["tab_name"]
+        else:
+            tab_key = cfg.get("tab_key", "main")
+            sheet_name = cfg.get("tabs", {}).get(tab_key)
+
+        if not sheet_name:
+            raise ValueError(
+                "CS_IV_DB config harus punya 'tab_name' atau 'tabs' dengan tab_key yang valid."
+            )
+
+        db = read_sheet(sheet_id, sheet_name)
+        db.columns = db.columns.astype(str).str.strip()
+        return db
+
+    raise TypeError("CS_IV_DB harus berupa pandas DataFrame atau dict config GSheet.")
+
+
+def transform_cs_iv(raw_df, cs_iv_db):
+    df = raw_df.copy()
+    db = cs_iv_db.copy()
+
+    required_df_cols = [
+        "shipment_id",
+        "orig_hub_name",
+        "dest_hub_name",
+        "orig_shipment_close_datetime",
+        "orig_shipment_van_inbound_datetime",
+    ]
+    required_db_cols = [
+        "OD Trip Pairing",
+        "Start Close Reguler",
+        "End Close Reguler",
+        "Departure Datetime",
+    ]
+
+    missing_df_cols = [c for c in required_df_cols if c not in df.columns]
+    missing_db_cols = [c for c in required_db_cols if c not in db.columns]
+    if missing_df_cols:
+        raise ValueError(f"Kolom Metabase CS-IV tidak ditemukan: {missing_df_cols}")
+    if missing_db_cols:
+        raise ValueError(f"Kolom DB CS-IV tidak ditemukan: {missing_db_cols}")
+
+    # =========================
+    # CLEAN DATETIME
+    # =========================
+    df["orig_shipment_close_datetime"] = pd.to_datetime(
+        df["orig_shipment_close_datetime"],
+        errors="coerce",
+    )
+    df["orig_shipment_van_inbound_datetime"] = pd.to_datetime(
+        df["orig_shipment_van_inbound_datetime"],
+        errors="coerce",
+    )
+
+    db["Start Close Reguler"] = pd.to_datetime(db["Start Close Reguler"], errors="coerce")
+    db["End Close Reguler"] = pd.to_datetime(db["End Close Reguler"], errors="coerce")
+    db["Departure Datetime"] = pd.to_datetime(db["Departure Datetime"], errors="coerce")
+
+    # =========================
+    # BUILD OD = AI Excel
+    # =========================
+    df["od"] = (
+        df["orig_hub_name"].fillna("").astype(str).str.strip()
+        + " "
+        + df["dest_hub_name"].fillna("").astype(str).str.strip()
+    )
+    db["OD Trip Pairing"] = db["OD Trip Pairing"].astype(str).str.strip()
+
+    # =========================
+    # LOOKUP EARLIEST DEPART
+    # Excel logic:
+    # OD match AND close_datetime > start_close AND close_datetime <= end_close
+    # then return first Departure Datetime.
+    # =========================
+    def get_earliest_depart(row):
+        matched = db[
+            (db["OD Trip Pairing"] == row["od"])
+            & (row["orig_shipment_close_datetime"] > db["Start Close Reguler"])
+            & (row["orig_shipment_close_datetime"] <= db["End Close Reguler"])
+        ]
+
+        if matched.empty:
+            return pd.NaT
+
+        return matched.iloc[0]["Departure Datetime"]
+
+    df["earliest_depart"] = df.apply(get_earliest_depart, axis=1)
+
+    # =========================
+    # APPLY CS-IV LOGIC
+    # =========================
+    df["earliest_depart_buffer"] = df["earliest_depart"] + pd.Timedelta(minutes=30)
+    df["earliest_depart_date"] = df["earliest_depart"].dt.date
+
+    df["csiv_verdict"] = np.where(
+        df["earliest_depart_date"].isna(),
+        "N/A",
+        np.where(
+            df["orig_shipment_van_inbound_datetime"].isna(),
+            "No iv",
+            np.where(
+                df["orig_shipment_van_inbound_datetime"] > df["earliest_depart_buffer"],
+                "Miss",
+                "Hit",
+            ),
+        ),
+    )
+
+    df["cs_iv_duration_round"] = "-"
+    mask_miss = df["csiv_verdict"].eq("Miss")
+
+    df.loc[mask_miss, "cs_iv_duration_round"] = (
+        (
+            df.loc[mask_miss, "orig_shipment_van_inbound_datetime"]
+            - df.loc[mask_miss, "earliest_depart"]
+        )
+        .dt.total_seconds()
+        .div(3600)
+        .round(1)
+    )
+
+    duration_num = pd.to_numeric(df["cs_iv_duration_round"], errors="coerce")
+
+    df["miss_check"] = "-"
+    df.loc[
+        df["csiv_verdict"].eq("Miss") & (duration_num <= 3),
+        "miss_check",
+    ] = "Late depart"
+    df.loc[
+        df["csiv_verdict"].eq("Miss") & (duration_num > 3),
+        "miss_check",
+    ] = "Roll over / Offload?"
+
+    return df
+
+
+def pivot_cs_iv(detail_df):
+    if detail_df.empty:
+        return pd.DataFrame(columns=["orig_hub_name", "hit", "total_shipment", "cs_iv_%"])
+
+    summary_df = (
+        detail_df.groupby("orig_hub_name", dropna=False)
+        .agg(
+            hit=("csiv_verdict", lambda x: (x == "Hit").sum()),
+            total_shipment=("shipment_id", "count"),
+        )
+        .reset_index()
+    )
+
+    summary_df["cs_iv_%"] = np.where(
+        summary_df["total_shipment"].eq(0),
+        0,
+        summary_df["hit"] / summary_df["total_shipment"],
+    )
+
+    return summary_df
 
 
 def run():
@@ -330,16 +586,47 @@ def run():
         print(f"- {key}: {df.shape}")
 
     tracker_results = {}
+    cs_iv_detail_results = {}
+    cs_iv_db_cache = None
+
     print("\n[4/4] Transform tracker outputs...")
 
-    for result_key, transform_func in TRANSFORM_MAP.items():
+    # Transform berdasarkan plan, bukan hanya TRANSFORM_MAP, supaya cs_iv bisa special case.
+    for item in LH_REPORT_PLAN:
+        report_key = item["report_key"]
+        result_key = result_name_for(item)
+
         if result_key not in results:
             print(f"[SKIP TRANSFORM] {result_key}: not found in raw results")
             continue
 
+        raw_df = results[result_key]
+
         try:
-            tracker_results[result_key] = transform_func(results[result_key])
-            print(f"[OK TRANSFORM] {result_key}: {tracker_results[result_key].shape}")
+            if report_key == "cs_iv":
+                if cs_iv_db_cache is None:
+                    print("[CS-IV] Load schedule DB...")
+                    cs_iv_db_cache = load_cs_iv_db()
+                    print(f"[CS-IV] DB shape: {cs_iv_db_cache.shape}")
+
+                detail_df = transform_cs_iv(raw_df, cs_iv_db_cache)
+                cs_iv_detail_results[result_key] = detail_df
+                print(f"[OK CS-IV DETAIL] {result_key}: {detail_df.shape}")
+
+                write_cs_iv_detail_result(result_key, detail_df)
+
+                tracker_results[result_key] = pivot_cs_iv(detail_df)
+                print(f"[OK CS-IV PIVOT] {result_key}: {tracker_results[result_key].shape}")
+
+            else:
+                transform_func = TRANSFORM_MAP.get(result_key)
+                if transform_func is None:
+                    print(f"[SKIP TRANSFORM] {result_key}: belum ada transform map")
+                    continue
+
+                tracker_results[result_key] = transform_func(raw_df)
+                print(f"[OK TRANSFORM] {result_key}: {tracker_results[result_key].shape}")
+
         except Exception as e:
             print(f"[FAILED TRANSFORM] {result_key}")
             print(repr(e))
@@ -350,7 +637,7 @@ def run():
         write_tracker_result(result_key, tracker_df)
 
     print("\n=== LH DAY 2 DONE ===")
-    return {"raw": results, "tracker": tracker_results}
+    return {"raw": results, "cs_iv_detail": cs_iv_detail_results, "tracker": tracker_results}
 
 
 if __name__ == "__main__":
