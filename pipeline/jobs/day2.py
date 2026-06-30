@@ -301,11 +301,27 @@ def run_report(report_key, runtime_values, token, segment_key=None, desc=None):
     return df_result
 
 
+# def sanitize_for_sheet(df):
+#     cleaned = df.copy()
+#     cleaned = cleaned.replace([float("inf"), float("-inf")], pd.NA)
+#     return cleaned.where(pd.notna(cleaned), "")
 def sanitize_for_sheet(df):
     cleaned = df.copy()
-    cleaned = cleaned.replace([float("inf"), float("-inf")], pd.NA)
-    return cleaned.where(pd.notna(cleaned), "")
 
+    cleaned = cleaned.replace([float("inf"), float("-inf")], pd.NA)
+
+    # convert datetime columns
+    datetime_cols = cleaned.select_dtypes(
+        include=["datetime64[ns]", "datetimetz"]
+    ).columns
+
+    for col in datetime_cols:
+        cleaned[col] = cleaned[col].dt.strftime("%Y-%m-%d %H:%M:%S")
+
+    cleaned = cleaned.where(pd.notna(cleaned), "")
+
+    return cleaned
+    
 
 def write_with_destinations(result_key, df_to_write, destinations):
     if not destinations:
