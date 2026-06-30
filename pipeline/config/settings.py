@@ -84,7 +84,7 @@ METABASE_CONFIG = {
             "report_type": "lh",
             "common_params_template": [
                 {"id": "d6472180-efcd-48f3-a7bb-e6210b4a32ac", "type": "date/single", "value": "end_date", "target": ["variable", ["template-tag", "exp_dep_end"]]},
-                {"id": "522e86b9-f7ea-45c6-ac0a-92ab57ca33e8", "type": "string/=", "value": ["COMPLETED", "ARRIVED"], "target": ["variable", ["dimension", ["template-tag", "status"]]]},
+                {"id": "522e86b9-f7ea-45c6-ac0a-92ab57ca33e8", "type": "string/=", "value": ["COMPLETED", "ARRIVED"], "target": ["dimension", ["template-tag", "status"]]},
                 {"id": "6f7bd3bb-7a76-49ae-9f5e-ee78d1531118", "type": "date/single", "value": "start_date", "target": ["variable", ["template-tag", "exp_dep_start"]]},
             ],
             "shipper_params_template": {
