@@ -51,6 +51,22 @@ GSHEET = {
             "main": "USE THIS",
         },
     },
+    "cs_iv_db": {
+        "url": "https://docs.google.com/spreadsheets/d/13zH3d2jXEgN6tcBqlnapG-XELZsmzjNZ8HnVLgWr3Bg/edit?gid=602572585#gid=602572585",
+        "sheet_id": "13zH3d2jXEgN6tcBqlnapG-XELZsmzjNZ8HnVLgWr3Bg",
+        "tabs": {
+            "main": "COMPILE_WAVE_UNPIV",
+        },
+    },
+    "cs_iv_detail": {
+        "url": "https://docs.google.com/spreadsheets/d/11owrtLI2CdSHQjDXODN8BtRWN0GT6rvM8ZIMObUQwYw/edit?gid=602572585#gid=602572585",
+        "sheet_id": "11owrtLI2CdSHQjDXODN8BtRWN0GT6rvM8ZIMObUQwYw",
+        "tabs": {
+            "shopee_lazada": "Shopee Lazada",
+            "key_shipper": "Key Shipper",
+            "b2b_all_b2c_cc": "B2B All B2C CC"
+        },
+    },
     "config": {
         "sheet_id": "1RJK6GFPVrourpdF91GQ1DWuxBBn2a9_SndoyraXckZ4",
         "tabs": {
