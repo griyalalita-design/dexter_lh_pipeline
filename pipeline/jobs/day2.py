@@ -316,12 +316,16 @@ def write_with_destinations(result_key, df_to_write, destinations):
         print(f"[SKIP WRITE] {result_key}: dataframe empty")
         return
 
+    # kalau destinations bentuk dict tunggal, ubah jadi list
+    if isinstance(destinations, dict):
+        destinations = [destinations]
+
     df_to_write = sanitize_for_sheet(df_to_write)
 
     for dest in destinations:
         tracker_key = dest["tracker_key"]
         tab_key = dest["tab_key"]
-        start_cell = dest["start_cell"]
+        start_cell = dest.get("start_cell", "A1")
         include_header = dest.get("include_header", False)
 
         if tracker_key not in GSHEET:
@@ -334,16 +338,13 @@ def write_with_destinations(result_key, df_to_write, destinations):
 
         print(f"Writing {result_key} -> {tracker_key} | {sheet_name} | {start_cell}")
 
-        try:
-            write_sheet(
-                spreadsheet_id=sheet_id,
-                sheet_name=sheet_name,
-                df=df_to_write,
-                start_cell=start_cell,
-                include_header=include_header,
-            )
-        except TypeError:
-            write_sheet(sheet_id, sheet_name, df_to_write)
+        write_sheet(
+            spreadsheet_id=sheet_id,
+            sheet_name=sheet_name,
+            df=df_to_write,
+            start_cell=start_cell,
+            include_header=include_header,
+        )
 
 
 def write_tracker_result(result_key, df_to_write):
@@ -358,7 +359,7 @@ def write_cs_iv_detail_result(result_key, detail_df):
     write_with_destinations(
         result_key=f"{result_key}_detail",
         df_to_write=detail_df,
-        destinations=CS_IV_DETAIL_WRITE_MAP.get(result_key, []),
+        destinations=CS_IV_DETAIL_WRITE_MAP.get(result_key, {}),
     )
 
 
@@ -548,23 +549,7 @@ def pivot_cs_iv(detail_df):
 
     return summary_df
     
-def write_cs_iv_detail(result_key, detail_df):
 
-    tab_map = {
-        "cs_iv_shopee_lazada": "shopee_lazada",
-        "cs_iv_key_shipper": "key_shipper",
-        "cs_iv_b2b_all_b2c_cc": "b2b_all_b2c_cc",
-    }
-
-    tab_key = tab_map[result_key]
-
-    write_sheet(
-        spreadsheet_id=GSHEET["cs_iv_detail"]["sheet_id"],
-        sheet_name=GSHEET["cs_iv_detail"]["tabs"][tab_key],
-        df=sanitize_for_sheet(detail_df),
-        start_cell="A1",
-        include_header=True,
-    )
 
 
 def run():
