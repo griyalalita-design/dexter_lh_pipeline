@@ -104,13 +104,13 @@ TRANSFORM_MAP = {
 
 TRACKER_WRITE_MAP = {
     "iv_poa_shopee_lazada": [
-        {"tracker_key": "tracker", "tab_key": "raw_data_compile", "start_cell": "BK6"},
+        {"tracker_key": "tracker", "tab_key": "raw_data_compile", "start_cell": "BL6"},
     ],
     "iv_poa_key_shipper": [
         {"tracker_key": "tracker", "tab_key": "raw_data_compile", "start_cell": "AF6"},
     ],
     "iv_poa_b2b_all_b2c_cc": [
-        {"tracker_key": "tracker", "tab_key": "raw_data_compile", "start_cell": "Y6"},
+        {"tracker_key": "tracker", "tab_key": "raw_data_compile", "start_cell": "Z6"},
     ],
     "n0_completion_b2b_all_b2c_cc": [
         {"tracker_key": "tracker", "tab_key": "raw_data_compile", "start_cell": "AL6"},
