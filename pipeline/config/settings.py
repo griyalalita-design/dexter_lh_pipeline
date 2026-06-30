@@ -105,9 +105,9 @@ METABASE_CONFIG = {
                 {"id": "3c9c5724-3815-45e2-8643-43ad12d51005","type": "category","value": ["CROSSDOCK"],"target": ["variable", ["template-tag", "orig_hub_facility_type"]],},
             ],
             "shipper_params_template": {
-                "shopee_lazada": [{"id": "586a906e-a676-432c-b1d8-dc3b098bcc3a","type": "string/contains","value": [341107, 216977],"target":["dimension", ["template-tag", "sf_parent_acc_id_coalesce"]]},],
+                "shopee_lazada": [{"id": "586a906e-a676-432c-b1d8-dc3b098bcc3a","type": "string/=","value": [341107, 216977],"target":["dimension", ["template-tag", "sf_parent_acc_id_coalesce"]]},],
                 "key_shipper": [{"id": "2939e663-5f31-4b48-890d-ef898ce1a0ea","type": "id","value":"agg_fsbd" ,"target": ["dimension", ["template-tag", "shipper_id"]]},
-                               {"id": "586a906e-a676-432c-b1d8-dc3b098bcc3a","type": "string/contains","value": [7474545],"target":["dimension", ["template-tag", "sf_parent_acc_id_coalesce"]]}],
+                               {"id": "586a906e-a676-432c-b1d8-dc3b098bcc3a","type": "string/=","value": [7474545],"target":["dimension", ["template-tag", "sf_parent_acc_id_coalesce"]]}],
                 "b2b_all_b2c_cc": [{"id": "2939e663-5f31-4b48-890d-ef898ce1a0ea","type": "id","value":"b2b_all_b2c_cc" ,"target": ["dimension", ["template-tag", "shipper_id"]]}],
             },
         },
