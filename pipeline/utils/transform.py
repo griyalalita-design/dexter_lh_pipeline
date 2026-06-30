@@ -135,3 +135,112 @@ def transform_rdo_rtd(df_raw: pd.DataFrame) -> pd.DataFrame:
         raise ValueError(f"Kolom RDO tidak ditemukan: {missing_cols}")
 
     return df_raw[cols].copy()
+
+def transform_cs_iv(df, db):
+    import pandas as pd
+    import numpy as np
+
+    df = df.copy()
+    db = db.copy()
+
+    # =========================
+    # CLEAN DATETIME
+    # =========================
+    df["orig_shipment_close_datetime"] = pd.to_datetime(df["orig_shipment_close_datetime"], errors="coerce")
+    df["orig_shipment_van_inbound_datetime"] = pd.to_datetime(df["orig_shipment_van_inbound_datetime"], errors="coerce")
+
+    db["Start Close Reguler"] = pd.to_datetime(db["Start Close Reguler"], errors="coerce")
+    db["End Close Reguler"] = pd.to_datetime(db["End Close Reguler"], errors="coerce")
+    db["Departure Datetime"] = pd.to_datetime(db["Departure Datetime"], errors="coerce")
+
+    # =========================
+    # BUILD OD
+    # =========================
+    df["od"] = (
+        df["orig_hub_name"].fillna("").astype(str).str.strip()
+        + " "
+        + df["dest_hub_name"].fillna("").astype(str).str.strip()
+    )
+
+    db["OD Trip Pairing"] = db["OD Trip Pairing"].astype(str).str.strip()
+
+    # =========================
+    # LOOKUP EARLIEST DEPART
+    # =========================
+    def get_earliest_depart(row):
+        matched = db[
+            (db["OD Trip Pairing"] == row["od"]) &
+            (row["orig_shipment_close_datetime"] > db["Start Close Reguler"]) &
+            (row["orig_shipment_close_datetime"] <= db["End Close Reguler"])
+        ]
+
+        if matched.empty:
+            return pd.NaT
+
+        return matched.iloc[0]["Departure Datetime"]
+
+    df["earliest_depart"] = df.apply(get_earliest_depart, axis=1)
+
+    # =========================
+    # APPLY LOGIC
+    # =========================
+    df["earliest_depart_buffer"] = df["earliest_depart"] + pd.Timedelta(minutes=30)
+    df["earliest_depart_date"] = df["earliest_depart"].dt.date
+
+    df["csiv_verdict"] = np.where(
+        df["earliest_depart_date"].isna(),
+        "N/A",
+        np.where(
+            df["orig_shipment_van_inbound_datetime"].isna(),
+            "No iv",
+            np.where(
+                df["orig_shipment_van_inbound_datetime"] > df["earliest_depart_buffer"],
+                "Miss",
+                "Hit"
+            )
+        )
+    )
+
+    df["cs_iv_duration_round"] = "-"
+
+    mask_miss = df["csiv_verdict"].eq("Miss")
+
+    df.loc[mask_miss, "cs_iv_duration_round"] = (
+        (
+            df.loc[mask_miss, "orig_shipment_van_inbound_datetime"]
+            - df.loc[mask_miss, "earliest_depart"]
+        )
+        .dt.total_seconds()
+        .div(3600)
+        .round(1)
+    )
+
+    duration_num = pd.to_numeric(df["cs_iv_duration_round"], errors="coerce")
+
+    df["miss_check"] = "-"
+
+    df.loc[
+        df["csiv_verdict"].eq("Miss") & (duration_num <= 3),
+        "miss_check"
+    ] = "Late depart"
+
+    df.loc[
+        df["csiv_verdict"].eq("Miss") & (duration_num > 3),
+        "miss_check"
+    ] = "Roll over / Offload?"
+
+    return df
+
+def pivot_cs_iv(df):
+    pivot = (
+        df.groupby("orig_hub_name", dropna=False)
+        .agg(
+            hit=("csiv_verdict", lambda x: (x == "Hit").sum()),
+            total_shipment=("shipment_id", "count")
+        )
+        .reset_index()
+    )
+
+    pivot["cs_iv_%"] = pivot["hit"] / pivot["total_shipment"]
+
+    return pivot
