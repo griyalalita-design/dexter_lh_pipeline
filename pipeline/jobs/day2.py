@@ -77,14 +77,14 @@ LH_REPORT_PLAN = [
     {"report_key": "cs_iv", "segment_key": "key_shipper"},
     {"report_key": "cs_iv", "segment_key": "b2b_all_b2c_cc"},
 
-    {"report_key": "n0_completion", "segment_key": "b2b_all_b2c_cc"},
-    {
-        "report_key": "no_rsvn_completed_b2b_all_b2c_cc",
-        "segment_key": "b2b_all_b2c_cc",
-        "result_key": "no_rsvn_completed_b2b_all_b2c_cc",
-    },
-    {"report_key": "shipment_compliance"},
-    {"report_key": "into_hub_compliance"},
+    # {"report_key": "n0_completion", "segment_key": "b2b_all_b2c_cc"},
+    # {
+    #     "report_key": "no_rsvn_completed_b2b_all_b2c_cc",
+    #     "segment_key": "b2b_all_b2c_cc",
+    #     "result_key": "no_rsvn_completed_b2b_all_b2c_cc",
+    # },
+    # {"report_key": "shipment_compliance"},
+    # {"report_key": "into_hub_compliance"},
     # Uncomment after the report config is enabled in settings.py.
     # {"report_key": "rdo_rtd_b2b"},
 ]
