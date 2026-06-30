@@ -67,15 +67,15 @@ SHIPPER_GROUPS = {
 
 
 LH_REPORT_PLAN = [
-    # {"report_key": "iv_poa", "segment_key": "shopee_lazada"},
-    # {"report_key": "iv_poa", "segment_key": "key_shipper"},
-    # {"report_key": "iv_poa", "segment_key": "b2b_all_b2c_cc"},
+    {"report_key": "iv_poa", "segment_key": "shopee_lazada"},
+    {"report_key": "iv_poa", "segment_key": "key_shipper"},
+    {"report_key": "iv_poa", "segment_key": "b2b_all_b2c_cc"},
 
     # CS-IV needs special transform:
     # raw Metabase -> lookup schedule DB -> save detail -> pivot summary.
-    {"report_key": "cs_iv", "segment_key": "shopee_lazada"},
-    {"report_key": "cs_iv", "segment_key": "key_shipper"},
-    {"report_key": "cs_iv", "segment_key": "b2b_all_b2c_cc"},
+    # {"report_key": "cs_iv", "segment_key": "shopee_lazada"},
+    # {"report_key": "cs_iv", "segment_key": "key_shipper"},
+    # {"report_key": "cs_iv", "segment_key": "b2b_all_b2c_cc"},
 
     # {"report_key": "n0_completion", "segment_key": "b2b_all_b2c_cc"},
     # {
