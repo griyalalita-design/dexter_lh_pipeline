@@ -531,6 +531,24 @@ def pivot_cs_iv(detail_df):
     )
 
     return summary_df
+    
+def write_cs_iv_detail(result_key, detail_df):
+
+    tab_map = {
+        "cs_iv_shopee_lazada": "shopee_lazada",
+        "cs_iv_key_shipper": "key_shipper",
+        "cs_iv_b2b_all_b2c_cc": "b2b_all_b2c_cc",
+    }
+
+    tab_key = tab_map[result_key]
+
+    write_sheet(
+        spreadsheet_id=GSHEET["cs_iv_detail"]["sheet_id"],
+        sheet_name=GSHEET["cs_iv_detail"]["tabs"][tab_key],
+        df=sanitize_for_sheet(detail_df),
+        start_cell="A1",
+        include_header=True,
+    )
 
 
 def run():
