@@ -80,7 +80,7 @@ GSHEET = {
 METABASE_CONFIG = {
     "lh": {
         "iv_poa": {
-            "url": "https://metabase.ninjavan.co/api/card/123978/query/json",
+            "url": "https://metabase.ninjavan.co/api/card/124929/query/json",
             "report_type": "lh",
             "common_params_template": [
                 {"id": "d6472180-efcd-48f3-a7bb-e6210b4a32ac", "type": "date/single", "value": "end_date", "target": ["variable", ["template-tag", "exp_dep_end"]]},
