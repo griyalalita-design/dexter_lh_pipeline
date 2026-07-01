@@ -1,18 +1,18 @@
 import copy
+import json
+import os
 import time
-from datetime import datetime, timedelta, date
+from datetime import date, datetime, timedelta
 
 import numpy as np
 import pandas as pd
-import os
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 
-from config.settings import GSHEET, METABASE_CONFIG
+from config.settings import GSHEET, METABASE_CONFIG, CS_IV_DETAIL_DRIVE_FOLDER_ID
 
 try:
-    # Optional: isi di settings.py kalau DB schedule CS-IV mau ditaruh di config.
-    # Bisa berupa DataFrame, atau dict config GSheet: {"sheet_id": "...", "tab_name": "..."}
+    # Optional. Bisa berupa DataFrame, atau dict config GSheet.
     from config.settings import CS_IV_DB
 except ImportError:
     CS_IV_DB = None
@@ -70,25 +70,22 @@ SHIPPER_GROUPS = {
 
 
 LH_REPORT_PLAN = [
-    # {"report_key": "iv_poa", "segment_key": "shopee_lazada"},
-    # {"report_key": "iv_poa", "segment_key": "key_shipper"},
-    # {"report_key": "iv_poa", "segment_key": "b2b_all_b2c_cc"},
+    {"report_key": "iv_poa", "segment_key": "shopee_lazada"},
+    {"report_key": "iv_poa", "segment_key": "key_shipper"},
+    {"report_key": "iv_poa", "segment_key": "b2b_all_b2c_cc"},
 
-    # CS-IV needs special transform:
-    # raw Metabase -> lookup schedule DB -> save detail -> pivot summary.
     {"report_key": "cs_iv", "segment_key": "shopee_lazada"},
     {"report_key": "cs_iv", "segment_key": "key_shipper"},
     {"report_key": "cs_iv", "segment_key": "b2b_all_b2c_cc"},
 
-    # {"report_key": "n0_completion", "segment_key": "b2b_all_b2c_cc"},
-    # {
-    #     "report_key": "no_rsvn_completed_b2b_all_b2c_cc",
-    #     "segment_key": "b2b_all_b2c_cc",
-    #     "result_key": "no_rsvn_completed_b2b_all_b2c_cc",
-    # },
-    # {"report_key": "shipment_compliance"},
-    # {"report_key": "into_hub_compliance"},
-    # Uncomment after the report config is enabled in settings.py.
+    {"report_key": "n0_completion", "segment_key": "b2b_all_b2c_cc"},
+    {
+        "report_key": "no_rsvn_completed_b2b_all_b2c_cc",
+        "segment_key": "b2b_all_b2c_cc",
+        "result_key": "no_rsvn_completed_b2b_all_b2c_cc",
+    },
+    {"report_key": "shipment_compliance"},
+    {"report_key": "into_hub_compliance"},
     # {"report_key": "rdo_rtd_b2b"},
 ]
 
@@ -130,7 +127,6 @@ TRACKER_WRITE_MAP = {
     "rdo_rtd_b2b": [
         {"tracker_key": "rdo_comp", "tab_key": "raw_data", "start_cell": "B6"},
     ],
-    # Isi start_cell kalau summary CS-IV sudah punya slot di tracker.
     "cs_iv_shopee_lazada": [
         {"tracker_key": "tracker", "tab_key": "raw_data_compile", "start_cell": "BR6"},
     ],
@@ -141,45 +137,6 @@ TRACKER_WRITE_MAP = {
         {"tracker_key": "tracker", "tab_key": "raw_data_compile", "start_cell": "T6"},
     ],
 }
-CS_IV_DETAIL_WRITE_MAP = {
-    "cs_iv_shopee_lazada": {
-        "tracker_key": "cs_iv_detail",
-        "tab_key": "shopee_lazada",
-        "start_cell": "A1",
-    },
-    "cs_iv_key_shipper": {
-        "tracker_key": "cs_iv_detail",
-        "tab_key": "key_shipper",
-        "start_cell": "A1",
-    },
-    "cs_iv_b2b_all_b2c_cc": {
-        "tracker_key": "cs_iv_detail",
-        "tab_key": "b2b_all_b2c_cc",
-        "start_cell": "A1",
-    },
-}
-
-# CS_IV_DETAIL_WRITE_MAP = {
-#     # Optional: aktifkan kalau config GSheet detail sudah siap di settings.py.
-#     # Contoh settings.py:
-#     # GSHEET["cs_iv_detail"] = {
-#     #     "sheet_id": "xxxxx",
-#     #     "tabs": {
-#     #         "shopee_lazada": "shopee_lazada",
-#     #         "key_shipper": "key_shipper",
-#     #         "b2b_all_b2c_cc": "b2b_all_b2c_cc",
-#     #     },
-#     # }
-#     # "cs_iv_shopee_lazada": [
-#     #     {"tracker_key": "cs_iv_detail", "tab_key": "shopee_lazada", "start_cell": "A1", "include_header": True},
-#     # ],
-#     # "cs_iv_key_shipper": [
-#     #     {"tracker_key": "cs_iv_detail", "tab_key": "key_shipper", "start_cell": "A1", "include_header": True},
-#     # ],
-#     # "cs_iv_b2b_all_b2c_cc": [
-#     #     {"tracker_key": "cs_iv_detail", "tab_key": "b2b_all_b2c_cc", "start_cell": "A1", "include_header": True},
-#     # ],
-# }
 
 
 def get_previous_month_period():
@@ -191,7 +148,6 @@ def get_previous_month_period():
     start_date = first_day_prev_month.strftime("%Y-%m-%d")
     end_date = last_day_prev_month.strftime("%Y-%m-%d")
     period_str = f"{start_date}~{end_date}"
-
     return start_date, end_date, period_str
 
 
@@ -304,35 +260,26 @@ def run_report(report_key, runtime_values, token, segment_key=None, desc=None):
     return df_result
 
 
-# def sanitize_for_sheet(df):
-#     cleaned = df.copy()
-#     cleaned = cleaned.replace([float("inf"), float("-inf")], pd.NA)
-#     return cleaned.where(pd.notna(cleaned), "")
-from datetime import date, datetime
-
 def sanitize_for_sheet(df):
     cleaned = df.copy()
-
     cleaned = cleaned.replace([float("inf"), float("-inf")], pd.NA)
 
+    def convert_value(x):
+        if pd.isna(x):
+            return ""
+        if isinstance(x, pd.Timestamp):
+            return x.strftime("%Y-%m-%d %H:%M:%S")
+        if isinstance(x, datetime):
+            return x.strftime("%Y-%m-%d %H:%M:%S")
+        if isinstance(x, date):
+            return x.strftime("%Y-%m-%d")
+        return x
+
     for col in cleaned.columns:
-
-        def convert_value(x):
-            if pd.isna(x):
-                return ""
-
-            if isinstance(x, pd.Timestamp):
-                return x.strftime("%Y-%m-%d %H:%M:%S")
-
-            if isinstance(x, (datetime, date)):
-                return x.strftime("%Y-%m-%d")
-
-            return x
-
         cleaned[col] = cleaned[col].apply(convert_value)
 
     return cleaned
-    
+
 
 def write_with_destinations(result_key, df_to_write, destinations):
     if not destinations:
@@ -343,7 +290,6 @@ def write_with_destinations(result_key, df_to_write, destinations):
         print(f"[SKIP WRITE] {result_key}: dataframe empty")
         return
 
-    # kalau destinations bentuk dict tunggal, ubah jadi list
     if isinstance(destinations, dict):
         destinations = [destinations]
 
@@ -382,13 +328,6 @@ def write_tracker_result(result_key, df_to_write):
     )
 
 
-def write_cs_iv_detail_result(result_key, detail_df):
-    write_with_destinations(
-        result_key=f"{result_key}_detail",
-        df_to_write=detail_df,
-        destinations=CS_IV_DETAIL_WRITE_MAP.get(result_key, {}),
-    )
-
 def export_cs_iv_detail_to_csv(result_key, detail_df, period_str):
     if detail_df.empty:
         print(f"[SKIP CS-IV CSV] {result_key}: dataframe empty")
@@ -397,15 +336,41 @@ def export_cs_iv_detail_to_csv(result_key, detail_df, period_str):
     output_dir = "output"
     os.makedirs(output_dir, exist_ok=True)
 
-    filename = f"{result_key}_detail_{period_str}.csv"
+    safe_period = period_str.replace("~", "_")
+    filename = f"{result_key}_detail_{safe_period}.csv"
     filepath = os.path.join(output_dir, filename)
 
-    detail_df = sanitize_for_sheet(detail_df)
-
-    detail_df.to_csv(filepath, index=False, encoding="utf-8-sig")
+    export_df = sanitize_for_sheet(detail_df)
+    export_df.to_csv(filepath, index=False, encoding="utf-8-sig")
 
     print(f"[OK CSV] {result_key}: {filepath}")
     return filepath
+
+
+def get_drive_service():
+    """Build Drive service.
+
+    Supports either:
+    1. GOOGLE_SERVICE_ACCOUNT_JSON env containing service-account JSON string.
+    2. GOOGLE_APPLICATION_CREDENTIALS / ADC.
+    """
+    scopes = ["https://www.googleapis.com/auth/drive.file"]
+
+    service_account_json = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
+    if service_account_json:
+        from google.oauth2 import service_account
+
+        info = json.loads(service_account_json)
+        credentials = service_account.Credentials.from_service_account_info(
+            info,
+            scopes=scopes,
+        )
+        return build("drive", "v3", credentials=credentials)
+
+    import google.auth
+
+    credentials, _ = google.auth.default(scopes=scopes)
+    return build("drive", "v3", credentials=credentials)
 
 
 def upload_file_to_drive(filepath, folder_id):
@@ -413,7 +378,11 @@ def upload_file_to_drive(filepath, folder_id):
         print(f"[SKIP DRIVE UPLOAD] file tidak ditemukan: {filepath}")
         return None
 
-    service = build("drive", "v3")
+    if not folder_id:
+        print("[SKIP DRIVE UPLOAD] CS_IV_DETAIL_DRIVE_FOLDER_ID kosong")
+        return None
+
+    service = get_drive_service()
 
     file_metadata = {
         "name": os.path.basename(filepath),
@@ -439,19 +408,10 @@ def upload_file_to_drive(filepath, folder_id):
 
     print(f"[OK DRIVE UPLOAD] {uploaded_file.get('name')}")
     print(f"Link: {uploaded_file.get('webViewLink')}")
-
     return uploaded_file
-    
-def load_cs_iv_db():
-    """Load CS-IV schedule DB.
 
-    Support beberapa bentuk supaya fleksibel:
-    1. CS_IV_DB di settings.py berupa pandas DataFrame.
-    2. CS_IV_DB di settings.py berupa dict:
-       {"sheet_id": "...", "tab_name": "..."}
-       atau {"sheet_id": "...", "tab_key": "main", "tabs": {"main": "..."}}
-    3. GSHEET["cs_iv_db"] di settings.py dengan struktur mirip key_shipper.
-    """
+
+def load_cs_iv_db():
     cfg = CS_IV_DB
 
     if isinstance(cfg, pd.DataFrame):
@@ -513,9 +473,6 @@ def transform_cs_iv(raw_df, cs_iv_db):
     if missing_db_cols:
         raise ValueError(f"Kolom DB CS-IV tidak ditemukan: {missing_db_cols}")
 
-    # =========================
-    # CLEAN DATETIME
-    # =========================
     df["orig_shipment_close_datetime"] = pd.to_datetime(
         df["orig_shipment_close_datetime"],
         errors="coerce",
@@ -529,9 +486,6 @@ def transform_cs_iv(raw_df, cs_iv_db):
     db["End Close Reguler"] = pd.to_datetime(db["End Close Reguler"], errors="coerce")
     db["Departure Datetime"] = pd.to_datetime(db["Departure Datetime"], errors="coerce")
 
-    # =========================
-    # BUILD OD = AI Excel
-    # =========================
     df["od"] = (
         df["orig_hub_name"].fillna("").astype(str).str.strip()
         + " "
@@ -539,12 +493,6 @@ def transform_cs_iv(raw_df, cs_iv_db):
     )
     db["OD Trip Pairing"] = db["OD Trip Pairing"].astype(str).str.strip()
 
-    # =========================
-    # LOOKUP EARLIEST DEPART
-    # Excel logic:
-    # OD match AND close_datetime > start_close AND close_datetime <= end_close
-    # then return first Departure Datetime.
-    # =========================
     def get_earliest_depart(row):
         matched = db[
             (db["OD Trip Pairing"] == row["od"])
@@ -558,15 +506,11 @@ def transform_cs_iv(raw_df, cs_iv_db):
         return matched.iloc[0]["Departure Datetime"]
 
     df["earliest_depart"] = df.apply(get_earliest_depart, axis=1)
-
-    # =========================
-    # APPLY CS-IV LOGIC
-    # =========================
     df["earliest_depart_buffer"] = df["earliest_depart"] + pd.Timedelta(minutes=30)
     df["earliest_depart_date"] = df["earliest_depart"].dt.date
 
     df["csiv_verdict"] = np.where(
-        df["earliest_depart_date"].isna(),
+        df["earliest_depart"].isna(),
         "N/A",
         np.where(
             df["orig_shipment_van_inbound_datetime"].isna(),
@@ -627,8 +571,6 @@ def pivot_cs_iv(detail_df):
     )
 
     return summary_df
-    
-
 
 
 def run():
@@ -689,9 +631,7 @@ def run():
 
     print("\n[4/4] Transform tracker outputs...")
 
-    # Transform berdasarkan plan, bukan hanya TRANSFORM_MAP, supaya cs_iv bisa special case.
     for item in LH_REPORT_PLAN:
-        report_key = item["report_key"]
         result_key = result_name_for(item)
 
         if result_key not in results:
@@ -701,7 +641,12 @@ def run():
         raw_df = results[result_key]
 
         try:
-            if report_key == "cs_iv":
+            if result_key.startswith("cs_iv"):
+                if raw_df.empty:
+                    print(f"[SKIP CS-IV TRANSFORM] {result_key}: raw dataframe empty")
+                    tracker_results[result_key] = pd.DataFrame()
+                    continue
+
                 if cs_iv_db_cache is None:
                     print("[CS-IV] Load schedule DB...")
                     cs_iv_db_cache = load_cs_iv_db()
@@ -711,19 +656,33 @@ def run():
                 cs_iv_detail_results[result_key] = detail_df
                 print(f"[OK CS-IV DETAIL] {result_key}: {detail_df.shape}")
 
-                write_cs_iv_detail_result(result_key, detail_df)
+                csv_path = export_cs_iv_detail_to_csv(
+                    result_key=result_key,
+                    detail_df=detail_df,
+                    period_str=period_str,
+                )
+
+                try:
+                    upload_file_to_drive(
+                        filepath=csv_path,
+                        folder_id=CS_IV_DETAIL_DRIVE_FOLDER_ID,
+                    )
+                except Exception as upload_error:
+                    print(f"[WARNING DRIVE UPLOAD FAILED] {result_key}: {repr(upload_error)}")
+                    print("CSV tetap tersimpan di folder output lokal.")
 
                 tracker_results[result_key] = pivot_cs_iv(detail_df)
-                print(f"[OK CS-IV PIVOT] {result_key}: {tracker_results[result_key].shape}")
 
             else:
-                transform_func = TRANSFORM_MAP.get(result_key)
-                if transform_func is None:
-                    print(f"[SKIP TRANSFORM] {result_key}: belum ada transform map")
+                if result_key not in TRANSFORM_MAP:
+                    print(f"[SKIP TRANSFORM] {result_key}: belum ada TRANSFORM_MAP")
+                    tracker_results[result_key] = pd.DataFrame()
                     continue
 
+                transform_func = TRANSFORM_MAP[result_key]
                 tracker_results[result_key] = transform_func(raw_df)
-                print(f"[OK TRANSFORM] {result_key}: {tracker_results[result_key].shape}")
+
+            print(f"[OK TRANSFORM] {result_key}: {tracker_results[result_key].shape}")
 
         except Exception as e:
             print(f"[FAILED TRANSFORM] {result_key}")
