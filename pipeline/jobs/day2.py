@@ -305,21 +305,28 @@ def run_report(report_key, runtime_values, token, segment_key=None, desc=None):
 #     cleaned = df.copy()
 #     cleaned = cleaned.replace([float("inf"), float("-inf")], pd.NA)
 #     return cleaned.where(pd.notna(cleaned), "")
+from datetime import date, datetime
+
 def sanitize_for_sheet(df):
     cleaned = df.copy()
 
     cleaned = cleaned.replace([float("inf"), float("-inf")], pd.NA)
 
     for col in cleaned.columns:
-        cleaned[col] = cleaned[col].apply(
-            lambda x: x.strftime("%Y-%m-%d %H:%M:%S")
-            if isinstance(x, pd.Timestamp)
-            else x.strftime("%Y-%m-%d")
-            if isinstance(x, date)
-            else x
-        )
 
-    cleaned = cleaned.where(pd.notna(cleaned), "")
+        def convert_value(x):
+            if pd.isna(x):
+                return ""
+
+            if isinstance(x, pd.Timestamp):
+                return x.strftime("%Y-%m-%d %H:%M:%S")
+
+            if isinstance(x, (datetime, date)):
+                return x.strftime("%Y-%m-%d")
+
+            return x
+
+        cleaned[col] = cleaned[col].apply(convert_value)
 
     return cleaned
     
