@@ -1,4 +1,5 @@
 SERVICE_ACCOUNT_FILE = "service_account.json"
+CS_IV_DETAIL_DRIVE_FOLDER_ID = "1h-FhzFofDUsB5mbIJU2vtLfnfinjndw-"
 
 
 GSHEET = {
