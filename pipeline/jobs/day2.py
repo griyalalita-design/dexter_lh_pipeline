@@ -1,6 +1,6 @@
 import copy
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 
 import numpy as np
 import pandas as pd
@@ -310,13 +310,14 @@ def sanitize_for_sheet(df):
 
     cleaned = cleaned.replace([float("inf"), float("-inf")], pd.NA)
 
-    # convert datetime columns
-    datetime_cols = cleaned.select_dtypes(
-        include=["datetime64[ns]", "datetimetz"]
-    ).columns
-
-    for col in datetime_cols:
-        cleaned[col] = cleaned[col].dt.strftime("%Y-%m-%d %H:%M:%S")
+    for col in cleaned.columns:
+        cleaned[col] = cleaned[col].apply(
+            lambda x: x.strftime("%Y-%m-%d %H:%M:%S")
+            if isinstance(x, pd.Timestamp)
+            else x.strftime("%Y-%m-%d")
+            if isinstance(x, date)
+            else x
+        )
 
     cleaned = cleaned.where(pd.notna(cleaned), "")
 
