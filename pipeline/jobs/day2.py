@@ -8,6 +8,7 @@ import numpy as np
 import pandas as pd
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
+from google.oauth2.service_account import Credentials
 
 from config.settings import GSHEET, METABASE_CONFIG, CS_IV_DETAIL_DRIVE_FOLDER_ID
 
@@ -371,18 +372,24 @@ def get_drive_service():
 
     credentials, _ = google.auth.default(scopes=scopes)
     return build("drive", "v3", credentials=credentials)
-
-
+    
 def upload_file_to_drive(filepath, folder_id):
     if not filepath or not os.path.exists(filepath):
         print(f"[SKIP DRIVE UPLOAD] file tidak ditemukan: {filepath}")
         return None
 
-    if not folder_id:
-        print("[SKIP DRIVE UPLOAD] CS_IV_DETAIL_DRIVE_FOLDER_ID kosong")
-        return None
+    scopes = ["https://www.googleapis.com/auth/drive.file"]
 
-    service = get_drive_service()
+    credentials = Credentials.from_service_account_file(
+        "service_account.json",
+        scopes=scopes,
+    )
+
+    service = build(
+        "drive",
+        "v3",
+        credentials=credentials,
+    )
 
     file_metadata = {
         "name": os.path.basename(filepath),
@@ -408,7 +415,10 @@ def upload_file_to_drive(filepath, folder_id):
 
     print(f"[OK DRIVE UPLOAD] {uploaded_file.get('name')}")
     print(f"Link: {uploaded_file.get('webViewLink')}")
+
     return uploaded_file
+
+
 
 
 def load_cs_iv_db():
