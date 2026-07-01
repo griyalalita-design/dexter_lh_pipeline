@@ -4,6 +4,9 @@ from datetime import datetime, timedelta, date
 
 import numpy as np
 import pandas as pd
+import os
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaFileUpload
 
 from config.settings import GSHEET, METABASE_CONFIG
 
@@ -386,7 +389,59 @@ def write_cs_iv_detail_result(result_key, detail_df):
         destinations=CS_IV_DETAIL_WRITE_MAP.get(result_key, {}),
     )
 
+def export_cs_iv_detail_to_csv(result_key, detail_df, period_str):
+    if detail_df.empty:
+        print(f"[SKIP CS-IV CSV] {result_key}: dataframe empty")
+        return None
 
+    output_dir = "output"
+    os.makedirs(output_dir, exist_ok=True)
+
+    filename = f"{result_key}_detail_{period_str}.csv"
+    filepath = os.path.join(output_dir, filename)
+
+    detail_df = sanitize_for_sheet(detail_df)
+
+    detail_df.to_csv(filepath, index=False, encoding="utf-8-sig")
+
+    print(f"[OK CSV] {result_key}: {filepath}")
+    return filepath
+
+
+def upload_file_to_drive(filepath, folder_id):
+    if not filepath or not os.path.exists(filepath):
+        print(f"[SKIP DRIVE UPLOAD] file tidak ditemukan: {filepath}")
+        return None
+
+    service = build("drive", "v3")
+
+    file_metadata = {
+        "name": os.path.basename(filepath),
+        "parents": [folder_id],
+    }
+
+    media = MediaFileUpload(
+        filepath,
+        mimetype="text/csv",
+        resumable=True,
+    )
+
+    uploaded_file = (
+        service.files()
+        .create(
+            body=file_metadata,
+            media_body=media,
+            fields="id, name, webViewLink",
+            supportsAllDrives=True,
+        )
+        .execute()
+    )
+
+    print(f"[OK DRIVE UPLOAD] {uploaded_file.get('name')}")
+    print(f"Link: {uploaded_file.get('webViewLink')}")
+
+    return uploaded_file
+    
 def load_cs_iv_db():
     """Load CS-IV schedule DB.
 
