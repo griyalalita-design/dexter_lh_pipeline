@@ -378,10 +378,17 @@ def upload_file_to_drive(filepath, folder_id):
         print(f"[SKIP DRIVE UPLOAD] file tidak ditemukan: {filepath}")
         return None
 
+    service_account_json = os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
+
+    if not service_account_json:
+        raise ValueError("GOOGLE_SERVICE_ACCOUNT_JSON belum ada di environment/secrets.")
+
+    service_account_info = json.loads(service_account_json)
+
     scopes = ["https://www.googleapis.com/auth/drive.file"]
 
-    credentials = Credentials.from_service_account_file(
-        "service_account.json",
+    credentials = Credentials.from_service_account_info(
+        service_account_info,
         scopes=scopes,
     )
 
@@ -417,7 +424,6 @@ def upload_file_to_drive(filepath, folder_id):
     print(f"Link: {uploaded_file.get('webViewLink')}")
 
     return uploaded_file
-
 
 
 
