@@ -92,7 +92,8 @@ METABASE_CONFIG = {
                 "shopee_lazada": [{"id": "327af4b4-52e1-413a-b3ae-411919069944", "type": "string/=", "value": [341107, 216977], "target": ["dimension", ["template-tag", "parent_id_coalesce"]]},],
                 "key_shipper": [
                     {"id": "6a918c5e-b750-482a-a16f-739a420ac520", "type": "string/=", "value": "agg_fsbd", "target": ["dimension", ["template-tag", "shipper_id"]]},
-                    {"id": "327af4b4-52e1-413a-b3ae-411919069944", "type": "string/=", "value": [7474545], "target": ["dimension", ["template-tag", "parent_id_coalesce"]]}],
+                    # {"id": "327af4b4-52e1-413a-b3ae-411919069944", "type": "string/=", "value": [7474545], "target": ["dimension", ["template-tag", "parent_id_coalesce"]]}
+                ],
                 "b2b_all_b2c_cc": [{"id": "6a918c5e-b750-482a-a16f-739a420ac520", "type": "string/=", "value": "b2b_all_b2c_cc", "target": ["dimension", ["template-tag", "shipper_id"]]},],
             },
         },
@@ -107,7 +108,8 @@ METABASE_CONFIG = {
                   "shipper_params_template": {
                       "shopee_lazada": [{"id": "52e00227-ac34-46f9-88a8-4401fee8df6f","type": "string/=","value": [341107, 216977],"target": ["dimension", ["template-tag", "parent_id_coalesce"]],},],
                       "key_shipper": [{"id": "93ce0dd0-010a-4d14-860e-77e15517c02d","type": "id","value": "agg_fsbd","target": ["dimension", ["template-tag", "shipper_id"]],},
-                                      {"id": "52e00227-ac34-46f9-88a8-4401fee8df6f","type": "string/=","value": [7474545],"target": ["dimension", ["template-tag", "parent_id_coalesce"]],},],
+                                      # {"id": "52e00227-ac34-46f9-88a8-4401fee8df6f","type": "string/=","value": [7474545],"target": ["dimension", ["template-tag", "parent_id_coalesce"]],},
+                                     ],
                       "b2b_all_b2c_cc": [{"id": "93ce0dd0-010a-4d14-860e-77e15517c02d","type": "id","value": "b2b_all_b2c_cc","target": ["dimension", ["template-tag", "shipper_id"]],},]
                   },
                  },
