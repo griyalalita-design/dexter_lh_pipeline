@@ -162,6 +162,50 @@ CS_IV_DETAIL_WRITE_MAP = {
     },
 }
 
+CS_IV_DETAIL_COLUMN_ORDER = [
+    "shipment_id",
+    "orig_hub_id",
+    "dest_hub_id",
+    "orig_hub_name",
+    "dest_hub_name",
+    "orig_hub_region",
+    "dest_hub_region",
+    "orig_hub_facility_type",
+    "dest_hub_facility_type",
+    "shipment_type",
+    "orig_shipment_close_datetime",
+    "orig_shipment_van_inbound_datetime",
+    "shipment_completion_datetime",
+    "base_event",
+    "base_status",
+    "base_hub_id",
+    "base_hub_name",
+    "base_hub_region",
+    "base_hub_facility_type",
+    "base_created_at_wib",
+    "next_van_inbound_time_wib",
+    "next_van_inbound_trip_id",
+    "trip_origin_hub_name",
+    "trip_dest_hub_name",
+    "expected_start_datetime",
+    "actual_start_datetime",
+    "expected_duration_min",
+    "expected_arrival_datetime",
+    "actual_arrival_datetime",
+    "completion_datetime",
+    "shipper_tag",
+    "total_orders",
+    "total_order_weight",
+    "total_order_volume",
+    "od",
+    "earliest_depart",
+    "earliest_depart_buffer",
+    "earliest_depart_date",
+    "csiv_verdict",
+    "cs_iv_duration_round",
+    "miss_check",
+]
+
 # CS_IV_DETAIL_WRITE_MAP = {
 #     # Optional: aktifkan kalau config GSheet detail sudah siap di settings.py.
 #     # Contoh settings.py:
@@ -606,6 +650,10 @@ def transform_cs_iv(raw_df, cs_iv_db):
         df["csiv_verdict"].eq("Miss") & (duration_num > 3),
         "miss_check",
     ] = "Roll over / Offload?"
+    
+    ordered_cols = [c for c in CS_IV_DETAIL_COLUMN_ORDER if c in df.columns]
+    remaining_cols = [c for c in df.columns if c not in ordered_cols]
+    df = df[ordered_cols + remaining_cols]
 
     return df
 
