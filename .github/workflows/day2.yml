@@ -33,3 +33,9 @@ jobs:
         env:
           PYTHONPATH: ${{ github.workspace }}/pipeline
         run: python -m jobs.day2
+        
+      - name: Upload output CSV
+        uses: actions/upload-artifact@v4
+        with:
+          name: lh-output-csv
+          path: output/**/*.csv
