@@ -8,7 +8,7 @@ import os
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 
-from config.settings import GSHEET, METABASE_CONFIG
+from config.settings import GSHEET, METABASE_CONFIG, RAW_METABASE_FOLDER_ID, SERVICE_ACCOUNT_FILE
 
 try:
     # Optional: isi di settings.py kalau DB schedule CS-IV mau ditaruh di config.
@@ -70,9 +70,9 @@ SHIPPER_GROUPS = {
 
 
 LH_REPORT_PLAN = [
-    # {"report_key": "iv_poa", "segment_key": "shopee_lazada"},
-    # {"report_key": "iv_poa", "segment_key": "key_shipper"},
-    # {"report_key": "iv_poa", "segment_key": "b2b_all_b2c_cc"},
+    {"report_key": "iv_poa", "segment_key": "shopee_lazada"},
+    {"report_key": "iv_poa", "segment_key": "key_shipper"},
+    {"report_key": "iv_poa", "segment_key": "b2b_all_b2c_cc"},
 
     # CS-IV needs special transform:
     # raw Metabase -> lookup schedule DB -> save detail -> pivot summary.
@@ -206,27 +206,7 @@ CS_IV_DETAIL_COLUMN_ORDER = [
     "miss_check",
 ]
 
-# CS_IV_DETAIL_WRITE_MAP = {
-#     # Optional: aktifkan kalau config GSheet detail sudah siap di settings.py.
-#     # Contoh settings.py:
-#     # GSHEET["cs_iv_detail"] = {
-#     #     "sheet_id": "xxxxx",
-#     #     "tabs": {
-#     #         "shopee_lazada": "shopee_lazada",
-#     #         "key_shipper": "key_shipper",
-#     #         "b2b_all_b2c_cc": "b2b_all_b2c_cc",
-#     #     },
-#     # }
-#     # "cs_iv_shopee_lazada": [
-#     #     {"tracker_key": "cs_iv_detail", "tab_key": "shopee_lazada", "start_cell": "A1", "include_header": True},
-#     # ],
-#     # "cs_iv_key_shipper": [
-#     #     {"tracker_key": "cs_iv_detail", "tab_key": "key_shipper", "start_cell": "A1", "include_header": True},
-#     # ],
-#     # "cs_iv_b2b_all_b2c_cc": [
-#     #     {"tracker_key": "cs_iv_detail", "tab_key": "b2b_all_b2c_cc", "start_cell": "A1", "include_header": True},
-#     # ],
-# }
+
 
 
 def get_previous_month_period():
@@ -351,10 +331,6 @@ def run_report(report_key, runtime_values, token, segment_key=None, desc=None):
     return df_result
 
 
-# def sanitize_for_sheet(df):
-#     cleaned = df.copy()
-#     cleaned = cleaned.replace([float("inf"), float("-inf")], pd.NA)
-#     return cleaned.where(pd.notna(cleaned), "")
 from datetime import date, datetime
 
 def sanitize_for_sheet(df):
@@ -444,14 +420,47 @@ def export_cs_iv_detail_to_csv(result_key, detail_df, period_str):
     output_dir = "output"
     os.makedirs(output_dir, exist_ok=True)
 
-    filename = f"{result_key}_detail_{period_str}.csv"
+    safe_period = period_str.replace("~", "_")
+    filename = f"{result_key}_detail_{safe_period}.csv"
     filepath = os.path.join(output_dir, filename)
 
     detail_df = sanitize_for_sheet(detail_df)
-
     detail_df.to_csv(filepath, index=False, encoding="utf-8-sig")
 
     print(f"[OK CSV] {result_key}: {filepath}")
+    return filepath
+
+
+def get_drive_service():
+    scopes = ["https://www.googleapis.com/auth/drive.file"]
+    if SERVICE_ACCOUNT_FILE and os.path.exists(SERVICE_ACCOUNT_FILE):
+        from google.oauth2 import service_account
+
+        credentials = service_account.Credentials.from_service_account_file(
+            SERVICE_ACCOUNT_FILE,
+            scopes=scopes,
+        )
+        return build("drive", "v3", credentials=credentials)
+
+    return build("drive", "v3")
+
+
+def export_raw_metabase_to_csv(result_key, raw_df, period_str):
+    """Save raw Metabase pull as-is, preserving Metabase column order."""
+    if raw_df.empty:
+        print(f"[SKIP RAW CSV] {result_key}: dataframe empty")
+        return None
+
+    output_dir = "output/raw_metabase"
+    os.makedirs(output_dir, exist_ok=True)
+
+    safe_period = period_str.replace("~", "_")
+    filepath = os.path.join(output_dir, f"{result_key}_raw_{safe_period}.csv")
+
+    raw_df = sanitize_for_sheet(raw_df)
+    raw_df.to_csv(filepath, index=False, encoding="utf-8-sig")
+
+    print(f"[OK RAW CSV] {result_key}: {filepath}")
     return filepath
 
 
@@ -460,7 +469,11 @@ def upload_file_to_drive(filepath, folder_id):
         print(f"[SKIP DRIVE UPLOAD] file tidak ditemukan: {filepath}")
         return None
 
-    service = build("drive", "v3")
+    if not folder_id:
+        print("[SKIP DRIVE UPLOAD] RAW_METABASE_FOLDER_ID kosong")
+        return None
+
+    service = get_drive_service()
 
     file_metadata = {
         "name": os.path.basename(filepath),
@@ -660,7 +673,7 @@ def transform_cs_iv(raw_df, cs_iv_db):
 
 def pivot_cs_iv(detail_df):
     if detail_df.empty:
-        return pd.DataFrame(columns=["orig_hub_name", "hit", "total_shipment", "cs_iv_%"])
+        return pd.DataFrame(columns=["orig_hub_name", "hit", "total_shipment"])
 
     summary_df = (
         detail_df.groupby("orig_hub_name", dropna=False)
@@ -669,12 +682,6 @@ def pivot_cs_iv(detail_df):
             total_shipment=("shipment_id", "count"),
         )
         .reset_index()
-    )
-
-    summary_df["cs_iv_%"] = np.where(
-        summary_df["total_shipment"].eq(0),
-        0,
-        summary_df["hit"] / summary_df["total_shipment"],
     )
 
     return summary_df
@@ -734,6 +741,26 @@ def run():
     for key, df in results.items():
         print(f"- {key}: {df.shape}")
 
+    raw_export_paths = {}
+    print("\n[RAW EXPORT] Save raw Metabase results...")
+    for result_key, raw_df in results.items():
+        if str(result_key).startswith("cs_iv"):
+            print(f"[SKIP RAW EXPORT] {result_key}: CS-IV written to GSheet")
+            continue
+
+        csv_path = export_raw_metabase_to_csv(
+            result_key=result_key,
+            raw_df=raw_df,
+            period_str=period_str,
+        )
+        raw_export_paths[result_key] = csv_path
+
+        if csv_path:
+            try:
+                upload_file_to_drive(csv_path, RAW_METABASE_FOLDER_ID)
+            except Exception as e:
+                print(f"[WARNING DRIVE UPLOAD FAILED] {result_key}: {repr(e)}")
+
     tracker_results = {}
     cs_iv_detail_results = {}
     cs_iv_db_cache = None
@@ -786,7 +813,7 @@ def run():
         write_tracker_result(result_key, tracker_df)
 
     print("\n=== LH DAY 2 DONE ===")
-    return {"raw": results, "cs_iv_detail": cs_iv_detail_results, "tracker": tracker_results}
+    return {"raw": results, "raw_export_paths": raw_export_paths, "cs_iv_detail": cs_iv_detail_results, "tracker": tracker_results}
 
 
 if __name__ == "__main__":
